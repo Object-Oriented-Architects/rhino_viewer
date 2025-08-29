@@ -1,9 +1,11 @@
 'use client'
 
 import { useGLTF } from '@react-three/drei'
+import { useLoader } from '@react-three/fiber'
+import { Rhino3dmLoader } from 'three/examples/jsm/loaders/3DMLoader'
 import { useFrame } from '@react-three/fiber'
 import * as THREE from 'three'
-import { useMemo, useRef, useState } from 'react'
+import { useMemo, useRef, useState, useEffect } from 'react'
 import { Line, useCursor, MeshDistortMaterial } from '@react-three/drei'
 import { useRouter } from 'next/navigation'
 
@@ -16,53 +18,33 @@ export const Blob = ({ route = '/', ...props }) => {
       onClick={() => router.push(route)}
       onPointerOver={() => hover(true)}
       onPointerOut={() => hover(false)}
-      {...props}>
+      {...props}
+    >
       <sphereGeometry args={[1, 64, 64]} />
       <MeshDistortMaterial roughness={0.5} color={hovered ? 'hotpink' : '#1fb2f5'} />
     </mesh>
   )
 }
 
-export const Logo = ({ route = '/blob', ...props }) => {
-  const mesh = useRef(null)
-  const router = useRouter()
+export function Breezm({ onLoadComplete, ...props }) {
+  const filepath = '/model/Breezm_Pbr.3dm'
 
-  const [hovered, hover] = useState(false)
-  const points = useMemo(() => new THREE.EllipseCurve(0, 0, 3, 1.15, 0, 2 * Math.PI, false, 0).getPoints(100), [])
-
-  useCursor(hovered)
-  useFrame((state, delta) => {
-    const t = state.clock.getElapsedTime()
-    mesh.current.rotation.y = Math.sin(t) * (Math.PI / 8)
-    mesh.current.rotation.x = Math.cos(t) * (Math.PI / 8)
-    mesh.current.rotation.z -= delta / 4
+  // useLoader는 Suspense와 함께 작동하여 로딩 상태를 자동으로 처리
+  const modelObj = useLoader(Rhino3dmLoader, filepath, (loader) => {
+    loader.setLibraryPath('https://cdn.jsdelivr.net/npm/rhino3dm@8.17.0/')
   })
 
+  // 모델이 로드되면 콜백 호출
+  useEffect(() => {
+    if (modelObj && onLoadComplete) {
+      onLoadComplete()
+    }
+  }, [modelObj, onLoadComplete])
+  console.log(modelObj)
+
   return (
-    <group ref={mesh} {...props}>
-      {/* @ts-ignore */}
-      <Line worldUnits points={points} color='#1fb2f5' lineWidth={0.15} />
-      {/* @ts-ignore */}
-      <Line worldUnits points={points} color='#1fb2f5' lineWidth={0.15} rotation={[0, 0, 1]} />
-      {/* @ts-ignore */}
-      <Line worldUnits points={points} color='#1fb2f5' lineWidth={0.15} rotation={[0, 0, -1]} />
-      <mesh onClick={() => router.push(route)} onPointerOver={() => hover(true)} onPointerOut={() => hover(false)}>
-        <sphereGeometry args={[0.55, 64, 64]} />
-        <meshPhysicalMaterial roughness={0.5} color={hovered ? 'hotpink' : '#1fb2f5'} />
-      </mesh>
+    <group rotation={[-Math.PI / 2, 0, 0]} {...props}>
+      <primitive object={modelObj} />
     </group>
   )
-}
-
-export function Duck(props) {
-  const { scene } = useGLTF('/duck.glb')
-
-  useFrame((state, delta) => (scene.rotation.y += delta))
-
-  return <primitive object={scene} {...props} />
-}
-export function Dog(props) {
-  const { scene } = useGLTF('/dog.glb')
-
-  return <primitive object={scene} {...props} />
 }
