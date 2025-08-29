@@ -24,7 +24,7 @@ const Common = dynamic(() => import('@/components/canvas/View').then((mod) => mo
 
 // Breezm 컴포넌트를 동적으로 로드하되, 로딩 완료 콜백을 지원하도록 래핑
 const GlassesWithCallback = ({ onLoadComplete }: { onLoadComplete: () => void }) => {
-  const Breezm = dynamic(() => import('@/components/canvas/Examples').then((mod) => mod.Breezm), { ssr: false })
+  const Breezm = dynamic(() => import('@/components/canvas/Models').then((mod) => mod.Breezm), { ssr: false })
   return <Breezm onLoadComplete={onLoadComplete} />
 }
 

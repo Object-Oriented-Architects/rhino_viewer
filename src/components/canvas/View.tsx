@@ -1,7 +1,7 @@
 'use client'
 
 import { forwardRef, Suspense, useImperativeHandle, useRef } from 'react'
-import { OrbitControls, PerspectiveCamera, View as ViewImpl } from '@react-three/drei'
+import { OrbitControls, PerspectiveCamera, View as ViewImpl, Environment } from '@react-three/drei'
 import { Three } from '@/helpers/components/Three'
 
 interface CommonProps {
@@ -12,19 +12,22 @@ export const Common = ({ color }: CommonProps) => (
   <Suspense fallback={null}>
     {color && <color attach='background' args={[color]} />}
 
+    {/* 환경 맵 추가 - 크롬 반사를 위해 */}
+    <Environment preset='studio' />
+
     {/* PBR을 위한 환경 조명 */}
     <ambientLight intensity={0.2} />
     <directionalLight
-      position={[10, 10, 5]}
+      position={[50, 50, 50]}
       intensity={2}
       castShadow
       shadow-mapSize={[2048, 2048]}
       shadow-camera-near={0.1}
-      shadow-camera-far={50}
-      shadow-camera-left={-10}
-      shadow-camera-right={10}
-      shadow-camera-top={10}
-      shadow-camera-bottom={-10}
+      shadow-camera-far={250}
+      shadow-camera-left={-100}
+      shadow-camera-right={150}
+      shadow-camera-top={100}
+      shadow-camera-bottom={-100}
     />
 
     {/* 추가 조명으로 PBR 재질 강화 */}
