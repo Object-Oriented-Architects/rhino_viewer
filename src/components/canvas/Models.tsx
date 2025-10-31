@@ -130,19 +130,17 @@ export function Breezm({ onLoadComplete, ...props }) {
     Frame: [],
     Shadow: [],
   })
-  // const Temple = useControls('Temple', materialGroups[0].controls as any)
-  // const TempleTip = useControls('TempleTip', materialGroups[1].controls as any)
-  // const NosePad = useControls('NosePad', materialGroups[2].controls as any)
-  // const Frame = useControls('Frame', materialGroups[3].controls as any)
+  const Temple = useControls('Temple', materialGroups[0].controls as any)
+  const TempleTip = useControls('TempleTip', materialGroups[1].controls as any)
+  const NosePad = useControls('NosePad', materialGroups[2].controls as any)
+  const Frame = useControls('Frame', materialGroups[3].controls as any)
 
-  const controlValues = Object.fromEntries(materialGroups.map(({ key, controls }) => [key, useControls(key, controls)]))
-
-  // const controlValues = {
-  //   Temple,
-  //   TempleTip,
-  //   NosePad,
-  //   Frame,
-  // } as any
+  const controlValues = {
+    Temple,
+    TempleTip,
+    NosePad,
+    Frame,
+  } as any
 
   // 모델 로드 후 텍스처 수동 적용
   useEffect(() => {
@@ -201,7 +199,7 @@ export function Breezm({ onLoadComplete, ...props }) {
         }
       })
     })
-  }, Object.values(controlValues))
+  }, [Temple, TempleTip, NosePad, Frame])
 
   return (
     <group rotation={[-Math.PI / 2, 0, 0]} {...props}>
