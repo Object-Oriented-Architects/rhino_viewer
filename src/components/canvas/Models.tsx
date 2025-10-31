@@ -65,9 +65,15 @@ export function Breezm({ onLoadComplete, ...props }) {
     Frame: [],
     Shadow: [],
   })
-  const controlValues = Object.fromEntries(
-    materialGroups.map(({ key, controls }) => [key, useControls(`${key}`, controls as any)]),
-  ) as any
+  const Temple = useControls('Temple', materialGroups[0].controls as any)
+  const TempleTip = useControls('TempleTip', materialGroups[1].controls as any)
+  const Frame = useControls('Frame', materialGroups[2].controls as any)
+
+  const controlValues = {
+    Temple,
+    TempleTip,
+    Frame,
+  } as any
 
   // 모델 로드 후 텍스처 수동 적용
   useEffect(() => {
