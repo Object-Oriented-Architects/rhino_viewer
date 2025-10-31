@@ -20,6 +20,10 @@ type MaterialConfig = {
   opacity?: number
   clearcoat?: number
   clearcoatRoughness?: number
+  transmission?: number
+  thickness?: number
+  iridescence?: number
+  dispersion?: number
   specularColor?: string
   specularIntensity?: number
   hueShift?: number
@@ -42,6 +46,11 @@ const applyMaterialSettings = (material: THREE.MeshPhysicalMaterial, values: Mat
 
   if (values.clearcoat !== undefined) material.clearcoat = values.clearcoat
   if (values.clearcoatRoughness !== undefined) material.clearcoatRoughness = values.clearcoatRoughness
+
+  if (values.transmission !== undefined) material.transmission = values.transmission
+  if (values.thickness !== undefined) material.thickness = values.thickness
+  if (values.iridescence !== undefined) material.iridescence = values.iridescence
+  if (values.dispersion !== undefined) material.dispersion = values.dispersion
 
   if (values.hueShift !== undefined && values.saturation !== undefined && values.lightness !== undefined)
     material.color.setHSL(values.hueShift / 360, values.saturation, values.lightness)
@@ -75,6 +84,10 @@ const materialGroups = [
       specularIntensity: { value: 1, min: 0, max: 1, step: 0.01 },
       clearcoat: { value: 1, min: 0, max: 1, step: 0.01 },
       clearcoatRoughness: { value: 0.05, min: 0, max: 1, step: 0.01 },
+      transmission: { value: 1, min: 0, max: 1, step: 0.01 },
+      thickness: { value: 1, min: 0, max: 1, step: 0.01 },
+      iridescence: { value: 1, min: 0, max: 1, step: 0.01 },
+      dispersion: { value: 1, min: 0, max: 1, step: 0.01 },
     },
   },
   {
@@ -90,6 +103,29 @@ const materialGroups = [
       specularIntensity: { value: 1, min: 0, max: 1, step: 0.01 },
       clearcoat: { value: 1, min: 0, max: 1, step: 0.01 },
       clearcoatRoughness: { value: 0.05, min: 0, max: 1, step: 0.01 },
+      transmission: { value: 1, min: 0, max: 1, step: 0.01 },
+      thickness: { value: 1, min: 0, max: 1, step: 0.01 },
+      iridescence: { value: 1, min: 0, max: 1, step: 0.01 },
+      dispersion: { value: 1, min: 0, max: 1, step: 0.01 },
+    },
+  },
+  {
+    key: 'Glass',
+    controls: {
+      color: { value: '#ffffff' },
+      anisotropy: { value: 0, min: 0, max: 1, step: 0.01 },
+      reflectivity: { value: 0.5, min: 0, max: 1, step: 0.01 },
+      ior: { value: 1.5, min: 1, max: 2.333, step: 0.001 },
+      opacity: { value: 0.5, min: 0, max: 1, step: 0.01 },
+      roughness: { value: 0.05, min: 0, max: 1, step: 0.01 },
+      specularColor: { value: '#ffffff' },
+      specularIntensity: { value: 1, min: 0, max: 1, step: 0.01 },
+      clearcoat: { value: 1, min: 0, max: 1, step: 0.01 },
+      clearcoatRoughness: { value: 0.05, min: 0, max: 1, step: 0.01 },
+      transmission: { value: 1, min: 0, max: 1, step: 0.01 },
+      thickness: { value: 1, min: 0, max: 1, step: 0.01 },
+      iridescence: { value: 1, min: 0, max: 1, step: 0.01 },
+      dispersion: { value: 1, min: 0, max: 1, step: 0.01 },
     },
   },
   {
@@ -116,6 +152,7 @@ export function Breezm({ onLoadComplete, ...props }) {
       color: loader.load('/model/Breezm_Pbr_shadow_embedded_files/Color-small.jpg'),
       normal: loader.load('/model/Breezm_Pbr_shadow_embedded_files/Normal-small.jpg'),
       roughness: loader.load('/model/Breezm_Pbr_shadow_embedded_files/Roughness-small.jpg'),
+      curvature: loader.load('/model/Breezm_Pbr_shadow_embedded_files/Curvature.png'),
       shadow: loader.load('/model/Breezm_Pbr_shadow_embedded_files/shadow.jpg'),
     }
   }, [])
@@ -133,23 +170,25 @@ export function Breezm({ onLoadComplete, ...props }) {
   const Temple = useControls('Temple', materialGroups[0].controls as any)
   const TempleTip = useControls('TempleTip', materialGroups[1].controls as any)
   const NosePad = useControls('NosePad', materialGroups[2].controls as any)
-  const Frame = useControls('Frame', materialGroups[3].controls as any)
+  const Glass = useControls('Glass', materialGroups[3].controls as any)
+  const Frame = useControls('Frame', materialGroups[4].controls as any)
 
   const controlValues = {
     Temple,
     TempleTip,
     NosePad,
+    Glass,
     Frame,
   } as any
 
   // 모델 로드 후 텍스처 수동 적용
   useEffect(() => {
     if (!modelObj) return
-    matRef.current = { Temple: [], TempleTip: [], NosePad: [], Frame: [], Shadow: [] }
+    matRef.current = { Temple: [], TempleTip: [], NosePad: [], Glass: [], Frame: [], Shadow: [] }
     modelObj.traverse((child) => {
       // 타입 가드를 사용하여 Mesh인지 확인
       if (child instanceof THREE.Mesh) {
-        const material = child.material
+        let material = child.material
 
         // 재질이 MeshStandardMaterial 또는 MeshPhysicalMaterial인지 확인
         if (material instanceof THREE.MeshPhysicalMaterial) {
@@ -164,6 +203,7 @@ export function Breezm({ onLoadComplete, ...props }) {
           }
           if (material.name == 'Temple') {
             material.normalMap = textures.normal
+            console.log(material)
           }
           if (!material.roughnessMap) {
             material.roughnessMap = textures.roughness
@@ -199,7 +239,7 @@ export function Breezm({ onLoadComplete, ...props }) {
         }
       })
     })
-  }, [Temple, TempleTip, NosePad, Frame])
+  }, [Temple, TempleTip, NosePad, Glass, Frame])
 
   return (
     <group rotation={[-Math.PI / 2, 0, 0]} {...props}>
