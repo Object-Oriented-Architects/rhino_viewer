@@ -11,31 +11,27 @@ interface CommonProps {
 }
 
 export const Common = ({ color }: CommonProps) => {
-  const { environmentIntensity, envRotX, envRotY, envRotZ, ambientLightIntensity, directionalLightInentsity, fov } =
-    useControls('Light', {
+  const { fov } = useControls('View', {
+    fov: {
+      value: 60,
+      min: 10,
+      max: 120,
+      step: 1,
+    },
+  })
+  const { environmentIntensity, envRotate, ambientLightIntensity, directionalLightInentsity, background } = useControls(
+    'Light',
+    {
       environmentIntensity: {
         value: 0.5,
         min: 0,
         max: 1,
         step: 0.01,
       },
-      envRotX: {
-        value: 0,
-        min: 0,
-        max: 360,
-        step: 0.01,
-      },
-      envRotY: {
-        value: 0,
-        min: 0,
-        max: 360,
-        step: 0.01,
-      },
-      envRotZ: {
-        value: 0,
-        min: 0,
-        max: 360,
-        step: 0.01,
+      envRotate: {
+        x: 0,
+        y: 0,
+        z: 0,
       },
       ambientLightIntensity: {
         value: 0.5,
@@ -49,17 +45,17 @@ export const Common = ({ color }: CommonProps) => {
         max: 10,
         step: 0.01,
       },
-      fov: {
-        value: 60,
-        min: 10,
-        max: 120,
-        step: 1,
-      },
-    })
+      background: false,
+    },
+  )
   const envRot = useMemo(() => new THREE.Euler(), [])
   useEffect(() => {
-    envRot.set(THREE.MathUtils.degToRad(envRotX), THREE.MathUtils.degToRad(envRotY), THREE.MathUtils.degToRad(envRotZ))
-  }, [envRotX, envRotY, envRotZ])
+    envRot.set(
+      THREE.MathUtils.degToRad(envRotate.x),
+      THREE.MathUtils.degToRad(envRotate.y),
+      THREE.MathUtils.degToRad(envRotate.z),
+    )
+  }, [envRotate])
   return (
     <Suspense fallback={null}>
       {color && <color attach='background' args={[color]} />}
@@ -67,10 +63,11 @@ export const Common = ({ color }: CommonProps) => {
 
       {/* 환경 맵 추가 - 크롬 반사를 위해 */}
       <Environment
-        preset='studio'
+        files={'/model/breezm.hdr'}
         environmentIntensity={environmentIntensity}
         environmentRotation={envRot}
-        // background
+        backgroundRotation={envRot}
+        background={background}
       />
 
       {/* PBR을 위한 환경 조명 */}

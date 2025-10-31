@@ -10,6 +10,47 @@ import { Line, useCursor, MeshDistortMaterial } from '@react-three/drei'
 import { useRouter } from 'next/navigation'
 import { folder, useControls } from 'leva'
 
+type MaterialConfig = {
+  color?: string
+  anisotropy?: number
+  reflectivity?: number
+  ior?: number
+  metalness?: number
+  roughness?: number
+  opacity?: number
+  clearcoat?: number
+  clearcoatRoughness?: number
+  specularColor?: string
+  specularIntensity?: number
+  hueShift?: number
+  saturation?: number
+  lightness?: number
+  multiplyScalar?: number
+}
+
+const applyMaterialSettings = (material: THREE.MeshPhysicalMaterial, values: MaterialConfig, textures?: any) => {
+  if (values.color) material.color.set(values.color)
+  if (values.anisotropy !== undefined) material.anisotropy = values.anisotropy
+  if (values.reflectivity !== undefined) material.reflectivity = values.reflectivity
+  if (values.ior !== undefined) material.ior = values.ior
+  if (values.opacity !== undefined) material.opacity = values.opacity
+  if (values.metalness !== undefined) material.metalness = values.metalness
+  if (values.roughness !== undefined) material.roughness = values.roughness
+
+  if (values.specularColor !== undefined) material.specularColor.set(values.specularColor)
+  if (values.specularIntensity !== undefined) material.specularIntensity = values.specularIntensity
+
+  if (values.clearcoat !== undefined) material.clearcoat = values.clearcoat
+  if (values.clearcoatRoughness !== undefined) material.clearcoatRoughness = values.clearcoatRoughness
+
+  if (values.hueShift !== undefined && values.saturation !== undefined && values.lightness !== undefined)
+    material.color.setHSL(values.hueShift / 360, values.saturation, values.lightness)
+
+  if (values.multiplyScalar !== undefined) material.color.multiplyScalar(values.multiplyScalar)
+
+  material.needsUpdate = true
+}
+
 const materialGroups = [
   {
     key: 'Temple',
@@ -17,14 +58,36 @@ const materialGroups = [
       color: { value: '#ffffff' },
       metalness: { value: 1.0, min: 0, max: 1, step: 0.01 },
       roughness: { value: 0.05, min: 0, max: 1, step: 0.01 },
+      specularColor: { value: '#ffffff' },
+      specularIntensity: { value: 1, min: 0, max: 1, step: 0.01 },
     },
   },
   {
     key: 'TempleTip',
     controls: {
       color: { value: '#73b0ff' },
+      anisotropy: { value: 0, min: 0, max: 1, step: 0.01 },
+      reflectivity: { value: 0.5, min: 0, max: 1, step: 0.01 },
+      ior: { value: 1.5, min: 1, max: 2.333, step: 0.001 },
       opacity: { value: 0.5, min: 0, max: 1, step: 0.01 },
       roughness: { value: 0.05, min: 0, max: 1, step: 0.01 },
+      specularColor: { value: '#ffffff' },
+      specularIntensity: { value: 1, min: 0, max: 1, step: 0.01 },
+      clearcoat: { value: 1, min: 0, max: 1, step: 0.01 },
+      clearcoatRoughness: { value: 0.05, min: 0, max: 1, step: 0.01 },
+    },
+  },
+  {
+    key: 'NosePad',
+    controls: {
+      color: { value: '#ffffff' },
+      anisotropy: { value: 0, min: 0, max: 1, step: 0.01 },
+      reflectivity: { value: 0.5, min: 0, max: 1, step: 0.01 },
+      ior: { value: 1.5, min: 1, max: 2.333, step: 0.001 },
+      opacity: { value: 0.5, min: 0, max: 1, step: 0.01 },
+      roughness: { value: 0.05, min: 0, max: 1, step: 0.01 },
+      specularColor: { value: '#ffffff' },
+      specularIntensity: { value: 1, min: 0, max: 1, step: 0.01 },
       clearcoat: { value: 1, min: 0, max: 1, step: 0.01 },
       clearcoatRoughness: { value: 0.05, min: 0, max: 1, step: 0.01 },
     },
@@ -36,6 +99,8 @@ const materialGroups = [
       hueShift: { value: 220, min: 0, max: 360, step: 0.1 },
       saturation: { value: 0.8, min: 0, max: 1, step: 0.01 },
       lightness: { value: 0.5, min: 0, max: 1, step: 0.01 },
+      specularColor: { value: '#ffffff' },
+      specularIntensity: { value: 1, min: 0, max: 1, step: 0.01 },
       multiplyScalar: { value: 3, min: 0, max: 10 },
     },
   },
@@ -58,27 +123,31 @@ export function Breezm({ onLoadComplete, ...props }) {
   const modelObj = useLoader(Rhino3dmLoader, filepath, (loader) => {
     loader.setLibraryPath('https://cdn.jsdelivr.net/npm/rhino3dm@8.17.0/')
   })
-  const templeMatRef = useRef<THREE.MeshPhysicalMaterial[]>([])
   const matRef = useRef<Record<string, THREE.MeshPhysicalMaterial[]>>({
     Temple: [],
     TempleTip: [],
+    NosePad: [],
     Frame: [],
     Shadow: [],
   })
-  const Temple = useControls('Temple', materialGroups[0].controls as any)
-  const TempleTip = useControls('TempleTip', materialGroups[1].controls as any)
-  const Frame = useControls('Frame', materialGroups[2].controls as any)
+  // const Temple = useControls('Temple', materialGroups[0].controls as any)
+  // const TempleTip = useControls('TempleTip', materialGroups[1].controls as any)
+  // const NosePad = useControls('NosePad', materialGroups[2].controls as any)
+  // const Frame = useControls('Frame', materialGroups[3].controls as any)
 
-  const controlValues = {
-    Temple,
-    TempleTip,
-    Frame,
-  } as any
+  const controlValues = Object.fromEntries(materialGroups.map(({ key, controls }) => [key, useControls(key, controls)]))
+
+  // const controlValues = {
+  //   Temple,
+  //   TempleTip,
+  //   NosePad,
+  //   Frame,
+  // } as any
 
   // 모델 로드 후 텍스처 수동 적용
   useEffect(() => {
     if (!modelObj) return
-    matRef.current = { Temple: [], TempleTip: [], Frame: [], Shadow: [] }
+    matRef.current = { Temple: [], TempleTip: [], NosePad: [], Frame: [], Shadow: [] }
     modelObj.traverse((child) => {
       // 타입 가드를 사용하여 Mesh인지 확인
       if (child instanceof THREE.Mesh) {
@@ -87,25 +156,15 @@ export function Breezm({ onLoadComplete, ...props }) {
         // 재질이 MeshStandardMaterial 또는 MeshPhysicalMaterial인지 확인
         if (material instanceof THREE.MeshPhysicalMaterial) {
           if (material.name == 'shadow') {
-            const shadowMat = new THREE.MeshBasicMaterial({
+            child.material = new THREE.MeshBasicMaterial({
               map: textures.shadow,
               toneMapped: false,
             })
-            child.material = shadowMat
           }
           if (material.name == 'Frame') {
             material.map = textures.color
-            material.roughness = 0.5
-
-            const hueShift = 220 / 360
-            material.color.setHSL(hueShift, 0.8, 0.5)
-            material.color.multiplyScalar(3)
           }
           if (material.name == 'Temple') {
-            templeMatRef.current.push(material)
-            material.color.setHex(0xffffff)
-            material.metalness = 1
-            material.roughness = 0.05
             material.normalMap = textures.normal
           }
           if (!material.roughnessMap) {
@@ -116,7 +175,13 @@ export function Breezm({ onLoadComplete, ...props }) {
             matRef.current[material.name].push(material)
           }
 
-          material.needsUpdate = true
+          const group = materialGroups.find((g) => g.key === material.name)
+          if (group) {
+            const initialValues = Object.fromEntries(
+              Object.entries(group.controls).map(([key, config]) => [key, (config as any).value]),
+            )
+            applyMaterialSettings(material, initialValues)
+          }
         }
       }
     })
@@ -127,23 +192,16 @@ export function Breezm({ onLoadComplete, ...props }) {
   }, [modelObj, textures, onLoadComplete])
 
   useEffect(() => {
-    for (const { key } of materialGroups) {
-      const mats = matRef.current[key] ?? []
+    materialGroups.forEach(({ key }) => {
+      const material = matRef.current[key] ?? []
       const values = controlValues[key]
-      for (const m of mats) {
-        if (!m) continue
-        if (values.color) m.color.set(values.color)
-        if (values.opacity !== undefined) m.opacity = values.opacity
-        if (values.metalness !== undefined) m.metalness = values.metalness
-        if (values.roughness !== undefined) m.roughness = values.roughness
-        if (values.clearcoat !== undefined) m.clearcoat = values.clearcoat
-        if (values.clearcoatRoughness !== undefined) m.clearcoatRoughness = values.clearcoatRoughness
-        if (values.hueShift !== undefined && values.saturation !== undefined && values.lightness !== undefined)
-          m.color.setHSL(values.hueShift / 360, values.saturation, values.lightness)
-        if (values.multiplyScalar !== undefined) m.color.multiplyScalar(values.multiplyScalar)
-      }
-    }
-  }, [controlValues.Temple, controlValues.TempleTip, controlValues.Frame, controlValues.Shadow])
+      material.forEach((material) => {
+        if (material) {
+          applyMaterialSettings(material, values)
+        }
+      })
+    })
+  }, Object.values(controlValues))
 
   return (
     <group rotation={[-Math.PI / 2, 0, 0]} {...props}>
