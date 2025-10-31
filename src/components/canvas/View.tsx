@@ -1,10 +1,11 @@
 'use client'
 
-import { forwardRef, Suspense, useEffect, useImperativeHandle, useMemo, useRef } from 'react'
+import { forwardRef, Suspense, useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react'
 import { SoftShadows, OrbitControls, PerspectiveCamera, View as ViewImpl, Environment } from '@react-three/drei'
 import { Three } from '@/helpers/components/Three'
 import * as THREE from 'three'
 import { folder, useControls } from 'leva'
+import { RGBELoader } from 'three/examples/jsm/Addons.js'
 
 interface CommonProps {
   color?: string
@@ -19,43 +20,62 @@ export const Common = ({ color }: CommonProps) => {
       step: 1,
     },
   })
-  const { environmentIntensity, envRotate, ambientLightIntensity, directionalLightInentsity, background } = useControls(
-    'Light',
-    {
-      environmentIntensity: {
-        value: 0.5,
-        min: 0,
-        max: 1,
-        step: 0.01,
-      },
-      envRotate: {
-        x: 0,
-        y: 0,
-        z: 0,
-      },
-      ambientLightIntensity: {
-        value: 0.5,
-        min: 0,
-        max: 10,
-        step: 0.01,
-      },
-      directionalLightInentsity: {
-        value: 0.5,
-        min: 0,
-        max: 10,
-        step: 0.01,
-      },
-      background: false,
+  const {
+    envMap,
+    environmentIntensity,
+    envRotX,
+    envRotY,
+    envRotZ,
+    ambientLightIntensity,
+    directionalLightInentsity,
+    background,
+  } = useControls('Light', {
+    envMap: {
+      value: 'threejs studio',
+      options: ['threejs studio', 'hdr'],
     },
-  )
+    environmentIntensity: {
+      value: 0.5,
+      min: 0,
+      max: 1,
+      step: 0.01,
+    },
+    envRotX: {
+      value: 0,
+      min: 0,
+      max: 360,
+      step: 0.01,
+    },
+    envRotY: {
+      value: 0,
+      min: 0,
+      max: 360,
+      step: 0.01,
+    },
+    envRotZ: {
+      value: 0,
+      min: 0,
+      max: 360,
+      step: 0.01,
+    },
+    ambientLightIntensity: {
+      value: 0.5,
+      min: 0,
+      max: 10,
+      step: 0.01,
+    },
+    directionalLightInentsity: {
+      value: 0.5,
+      min: 0,
+      max: 10,
+      step: 0.01,
+    },
+    background: false,
+  })
   const envRot = useMemo(() => new THREE.Euler(), [])
   useEffect(() => {
-    envRot.set(
-      THREE.MathUtils.degToRad(envRotate.x),
-      THREE.MathUtils.degToRad(envRotate.y),
-      THREE.MathUtils.degToRad(envRotate.z),
-    )
-  }, [envRotate])
+    envRot.set(THREE.MathUtils.degToRad(envRotX), THREE.MathUtils.degToRad(envRotY), THREE.MathUtils.degToRad(envRotZ))
+  }, [envRotX, envRotY, envRotZ])
   return (
     <Suspense fallback={null}>
       {color && <color attach='background' args={[color]} />}
@@ -63,7 +83,8 @@ export const Common = ({ color }: CommonProps) => {
 
       {/* 환경 맵 추가 - 크롬 반사를 위해 */}
       <Environment
-        files={'/model/breezm.hdr'}
+        preset={envMap === 'threejs studio' ? 'studio' : undefined}
+        files={envMap === 'hdr' ? '/model/breezm.hdr' : undefined}
         environmentIntensity={environmentIntensity}
         environmentRotation={envRot}
         backgroundRotation={envRot}
