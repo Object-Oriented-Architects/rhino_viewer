@@ -11,7 +11,7 @@ interface CommonProps {
 }
 
 export const Common = ({ color }: CommonProps) => {
-  const { environmentIntensity, envRotX, envRotY, envRotZ, ambientLightIntensity, directionalLightInentsity } =
+  const { environmentIntensity, envRotX, envRotY, envRotZ, ambientLightIntensity, directionalLightInentsity, fov } =
     useControls('Light', {
       environmentIntensity: {
         value: 0.5,
@@ -48,6 +48,12 @@ export const Common = ({ color }: CommonProps) => {
         min: 0,
         max: 10,
         step: 0.01,
+      },
+      fov: {
+        value: 60,
+        min: 10,
+        max: 120,
+        step: 1,
       },
     })
   const envRot = useMemo(() => new THREE.Euler(), [])
@@ -86,7 +92,7 @@ export const Common = ({ color }: CommonProps) => {
       {/* <pointLight position={[-10, 5, 10]} intensity={0.5} />
       <pointLight position={[10, -5, -10]} intensity={0.3} color='#4080ff' /> */}
 
-      <PerspectiveCamera makeDefault fov={60} position={[165, 65, 265]} />
+      <PerspectiveCamera makeDefault fov={fov} position={[165, 65, 265]} />
     </Suspense>
   )
 }
