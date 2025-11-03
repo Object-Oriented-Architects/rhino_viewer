@@ -17,6 +17,7 @@ type MaterialConfig = {
   ior?: number
   metalness?: number
   roughness?: number
+  roughnessMap?: string
   opacity?: number
   clearcoat?: number
   clearcoatRoughness?: number
@@ -40,6 +41,13 @@ const applyMaterialSettings = (material: THREE.MeshPhysicalMaterial, values: Mat
   if (values.opacity !== undefined) material.opacity = values.opacity
   if (values.metalness !== undefined) material.metalness = values.metalness
   if (values.roughness !== undefined) material.roughness = values.roughness
+  if (values.roughnessMap !== undefined && textures) {
+    if (values.roughnessMap === 'none') {
+      material.roughnessMap = null
+    } else {
+      material.roughnessMap = textures[values.roughnessMap as keyof typeof textures]
+    }
+  }
 
   if (values.specularColor !== undefined) material.specularColor.set(values.specularColor)
   if (values.specularIntensity !== undefined) material.specularIntensity = values.specularIntensity
@@ -132,6 +140,7 @@ const materialGroups = [
     key: 'Frame',
     controls: {
       roughness: { value: 0.5, min: 0, max: 1, step: 0.01 },
+      roughnessMap: { value: 'roughness', options: ['roughness', 'curvature', 'none'] },
       hueShift: { value: 220, min: 0, max: 360, step: 0.1 },
       saturation: { value: 0.8, min: 0, max: 1, step: 0.01 },
       lightness: { value: 0.5, min: 0, max: 1, step: 0.01 },
@@ -218,7 +227,7 @@ export function Breezm({ onLoadComplete, ...props }) {
             const initialValues = Object.fromEntries(
               Object.entries(group.controls).map(([key, config]) => [key, (config as any).value]),
             )
-            applyMaterialSettings(material, initialValues)
+            applyMaterialSettings(material, initialValues, textures)
           }
         }
       }
@@ -235,7 +244,7 @@ export function Breezm({ onLoadComplete, ...props }) {
       const values = controlValues[key]
       material.forEach((material) => {
         if (material) {
-          applyMaterialSettings(material, values)
+          applyMaterialSettings(material, values, textures)
         }
       })
     })
