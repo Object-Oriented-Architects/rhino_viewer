@@ -1,6 +1,6 @@
 'use client'
 
-import { useGLTF } from '@react-three/drei'
+import { ShadowAlpha, useGLTF } from '@react-three/drei'
 import { useLoader } from '@react-three/fiber'
 import { Rhino3dmLoader } from 'three/examples/jsm/loaders/3DMLoader.js'
 import { useFrame } from '@react-three/fiber'
@@ -12,6 +12,7 @@ import { folder, useControls } from 'leva'
 
 type MaterialConfig = {
   color?: string
+  colorMap?: string
   anisotropy?: number
   reflectivity?: number
   ior?: number
@@ -35,6 +36,9 @@ type MaterialConfig = {
 
 const applyMaterialSettings = (material: THREE.MeshPhysicalMaterial, values: MaterialConfig, textures?: any) => {
   if (values.color) material.color.set(values.color)
+  if (values.colorMap !== undefined) {
+    material.map = textures[values.colorMap as keyof typeof textures]
+  }
   if (values.anisotropy !== undefined) material.anisotropy = values.anisotropy
   if (values.reflectivity !== undefined) material.reflectivity = values.reflectivity
   if (values.ior !== undefined) material.ior = values.ior
@@ -74,7 +78,7 @@ const materialGroups = [
     controls: {
       color: { value: '#ffffff' },
       metalness: { value: 1.0, min: 0, max: 1, step: 0.01 },
-      roughness: { value: 0.05, min: 0, max: 1, step: 0.01 },
+      roughness: { value: 0.3, min: 0, max: 1, step: 0.01 },
       specularColor: { value: '#ffffff' },
       specularIntensity: { value: 1, min: 0, max: 1, step: 0.01 },
     },
@@ -83,19 +87,19 @@ const materialGroups = [
     key: 'TempleTip',
     controls: {
       color: { value: '#73b0ff' },
-      anisotropy: { value: 0, min: 0, max: 1, step: 0.01 },
-      reflectivity: { value: 0.5, min: 0, max: 1, step: 0.01 },
-      ior: { value: 1.5, min: 1, max: 2.333, step: 0.001 },
-      opacity: { value: 0.5, min: 0, max: 1, step: 0.01 },
-      roughness: { value: 0.05, min: 0, max: 1, step: 0.01 },
+      anisotropy: { value: 0.5, min: 0, max: 1, step: 0.01 },
+      reflectivity: { value: 1, min: 0, max: 1, step: 0.01 },
+      ior: { value: 2, min: 1, max: 2.333, step: 0.001 },
+      opacity: { value: 0.8, min: 0, max: 1, step: 0.01 },
+      roughness: { value: 0, min: 0, max: 1, step: 0.01 },
       specularColor: { value: '#ffffff' },
       specularIntensity: { value: 1, min: 0, max: 1, step: 0.01 },
       clearcoat: { value: 1, min: 0, max: 1, step: 0.01 },
-      clearcoatRoughness: { value: 0.05, min: 0, max: 1, step: 0.01 },
+      clearcoatRoughness: { value: 0, min: 0, max: 1, step: 0.01 },
       transmission: { value: 1, min: 0, max: 1, step: 0.01 },
       thickness: { value: 1, min: 0, max: 1, step: 0.01 },
-      iridescence: { value: 1, min: 0, max: 1, step: 0.01 },
-      dispersion: { value: 1, min: 0, max: 1, step: 0.01 },
+      iridescence: { value: 0, min: 0, max: 1, step: 0.01 },
+      dispersion: { value: 0, min: 0, max: 1, step: 0.01 },
     },
   },
   {
@@ -103,18 +107,18 @@ const materialGroups = [
     controls: {
       color: { value: '#ffffff' },
       anisotropy: { value: 0, min: 0, max: 1, step: 0.01 },
-      reflectivity: { value: 0.5, min: 0, max: 1, step: 0.01 },
-      ior: { value: 1.5, min: 1, max: 2.333, step: 0.001 },
-      opacity: { value: 0.5, min: 0, max: 1, step: 0.01 },
-      roughness: { value: 0.05, min: 0, max: 1, step: 0.01 },
+      reflectivity: { value: 0, min: 0, max: 1, step: 0.01 },
+      ior: { value: 2.333, min: 1, max: 2.333, step: 0.001 },
+      opacity: { value: 0.57, min: 0, max: 1, step: 0.01 },
+      roughness: { value: 0, min: 0, max: 1, step: 0.01 },
       specularColor: { value: '#ffffff' },
       specularIntensity: { value: 1, min: 0, max: 1, step: 0.01 },
       clearcoat: { value: 1, min: 0, max: 1, step: 0.01 },
-      clearcoatRoughness: { value: 0.05, min: 0, max: 1, step: 0.01 },
+      clearcoatRoughness: { value: 1, min: 0, max: 1, step: 0.01 },
       transmission: { value: 1, min: 0, max: 1, step: 0.01 },
       thickness: { value: 1, min: 0, max: 1, step: 0.01 },
-      iridescence: { value: 1, min: 0, max: 1, step: 0.01 },
-      dispersion: { value: 1, min: 0, max: 1, step: 0.01 },
+      iridescence: { value: 0, min: 0, max: 1, step: 0.01 },
+      dispersion: { value: 0, min: 0, max: 1, step: 0.01 },
     },
   },
   {
@@ -122,31 +126,32 @@ const materialGroups = [
     controls: {
       color: { value: '#ffffff' },
       anisotropy: { value: 0, min: 0, max: 1, step: 0.01 },
-      reflectivity: { value: 0.5, min: 0, max: 1, step: 0.01 },
-      ior: { value: 1.5, min: 1, max: 2.333, step: 0.001 },
-      opacity: { value: 0.5, min: 0, max: 1, step: 0.01 },
-      roughness: { value: 0.05, min: 0, max: 1, step: 0.01 },
+      reflectivity: { value: 1, min: 0, max: 1, step: 0.01 },
+      ior: { value: 1, min: 1, max: 2.333, step: 0.001 },
+      opacity: { value: 0.33, min: 0, max: 1, step: 0.01 },
+      roughness: { value: 0, min: 0, max: 1, step: 0.01 },
       specularColor: { value: '#ffffff' },
       specularIntensity: { value: 1, min: 0, max: 1, step: 0.01 },
       clearcoat: { value: 1, min: 0, max: 1, step: 0.01 },
-      clearcoatRoughness: { value: 0.05, min: 0, max: 1, step: 0.01 },
+      clearcoatRoughness: { value: 0, min: 0, max: 1, step: 0.01 },
       transmission: { value: 1, min: 0, max: 1, step: 0.01 },
       thickness: { value: 1, min: 0, max: 1, step: 0.01 },
-      iridescence: { value: 1, min: 0, max: 1, step: 0.01 },
+      iridescence: { value: 0.5, min: 0, max: 1, step: 0.01 },
       dispersion: { value: 1, min: 0, max: 1, step: 0.01 },
     },
   },
   {
     key: 'Frame',
     controls: {
+      colorMap: { value: 'colorAll', options: ['colorAll', 'colorMap'] },
       roughness: { value: 0.5, min: 0, max: 1, step: 0.01 },
       roughnessMap: { value: 'roughness', options: ['roughness', 'curvature', 'curvatureInvert', 'none'] },
       hueShift: { value: 220, min: 0, max: 360, step: 0.1 },
       saturation: { value: 0.8, min: 0, max: 1, step: 0.01 },
-      lightness: { value: 0.5, min: 0, max: 1, step: 0.01 },
+      lightness: { value: 0.19, min: 0, max: 1, step: 0.01 },
       specularColor: { value: '#ffffff' },
       specularIntensity: { value: 1, min: 0, max: 1, step: 0.01 },
-      multiplyScalar: { value: 3, min: 0, max: 10 },
+      multiplyScalar: { value: 6.3, min: 0, max: 10 },
     },
   },
 ]
@@ -158,12 +163,14 @@ export function Breezm({ onLoadComplete, ...props }) {
   const textures = useMemo(() => {
     const loader = new THREE.TextureLoader()
     return {
-      color: loader.load('/model/Breezm_Pbr_shadow_embedded_files/Color-small.jpg'),
+      colorAll: loader.load('/model/Breezm_Pbr_shadow_embedded_files/Color-small.jpg'),
+      colorMap: loader.load('/model/Breezm_Pbr_shadow_embedded_files/Color-map.jpg'),
       normal: loader.load('/model/Breezm_Pbr_shadow_embedded_files/Normal-small.jpg'),
       roughness: loader.load('/model/Breezm_Pbr_shadow_embedded_files/Roughness-small.jpg'),
       curvature: loader.load('/model/Breezm_Pbr_shadow_embedded_files/Curvature.png'),
       curvatureInvert: loader.load('/model/Breezm_Pbr_shadow_embedded_files/Curvature_invert.png'),
       shadow: loader.load('/model/Breezm_Pbr_shadow_embedded_files/shadow.jpg'),
+      ShadowAlpha: loader.load('/model/Breezm_Pbr_shadow_embedded_files/gradient_02.jpg'),
     }
   }, [])
 
@@ -206,10 +213,9 @@ export function Breezm({ onLoadComplete, ...props }) {
             child.material = new THREE.MeshBasicMaterial({
               map: textures.shadow,
               toneMapped: false,
+              alphaMap: textures.ShadowAlpha,
+              transparent: true,
             })
-          }
-          if (material.name == 'Frame') {
-            material.map = textures.color
           }
           if (material.name == 'Temple') {
             material.normalMap = textures.normal

@@ -14,7 +14,7 @@ interface CommonProps {
 export const Common = ({ color }: CommonProps) => {
   const { fov } = useControls('View', {
     fov: {
-      value: 60,
+      value: 30,
       min: 10,
       max: 120,
       step: 1,
@@ -31,7 +31,7 @@ export const Common = ({ color }: CommonProps) => {
     background,
   } = useControls('Light', {
     envMap: {
-      value: 'threejs studio',
+      value: 'hdr',
       options: ['threejs studio', 'hdr'],
     },
     environmentIntensity: {
@@ -47,7 +47,7 @@ export const Common = ({ color }: CommonProps) => {
       step: 0.01,
     },
     envRotY: {
-      value: 0,
+      value: 340,
       min: 0,
       max: 360,
       step: 0.01,
@@ -65,7 +65,7 @@ export const Common = ({ color }: CommonProps) => {
       step: 0.01,
     },
     directionalLightInentsity: {
-      value: 0.5,
+      value: 0.2,
       min: 0,
       max: 10,
       step: 0.01,
