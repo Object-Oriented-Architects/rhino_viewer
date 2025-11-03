@@ -140,7 +140,7 @@ const materialGroups = [
     key: 'Frame',
     controls: {
       roughness: { value: 0.5, min: 0, max: 1, step: 0.01 },
-      roughnessMap: { value: 'roughness', options: ['roughness', 'curvature', 'none'] },
+      roughnessMap: { value: 'roughness', options: ['roughness', 'curvature', 'curvatureInvert', 'none'] },
       hueShift: { value: 220, min: 0, max: 360, step: 0.1 },
       saturation: { value: 0.8, min: 0, max: 1, step: 0.01 },
       lightness: { value: 0.5, min: 0, max: 1, step: 0.01 },
@@ -162,6 +162,7 @@ export function Breezm({ onLoadComplete, ...props }) {
       normal: loader.load('/model/Breezm_Pbr_shadow_embedded_files/Normal-small.jpg'),
       roughness: loader.load('/model/Breezm_Pbr_shadow_embedded_files/Roughness-small.jpg'),
       curvature: loader.load('/model/Breezm_Pbr_shadow_embedded_files/Curvature.png'),
+      curvatureInvert: loader.load('/model/Breezm_Pbr_shadow_embedded_files/Curvature_invert.png'),
       shadow: loader.load('/model/Breezm_Pbr_shadow_embedded_files/shadow.jpg'),
     }
   }, [])
@@ -179,7 +180,7 @@ export function Breezm({ onLoadComplete, ...props }) {
   const Temple = useControls('Temple', materialGroups[0].controls as any)
   const TempleTip = useControls('TempleTip', materialGroups[1].controls as any)
   const NosePad = useControls('NosePad', materialGroups[2].controls as any)
-  const Glass = useControls('Glass', materialGroups[3].controls as any)
+  const Glass = useControls('Lens', materialGroups[3].controls as any)
   const Frame = useControls('Frame', materialGroups[4].controls as any)
 
   const controlValues = {
