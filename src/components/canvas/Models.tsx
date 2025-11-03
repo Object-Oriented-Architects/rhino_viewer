@@ -162,8 +162,12 @@ export function Breezm({ onLoadComplete, ...props }) {
   // 텍스처들을 미리 로드
   const textures = useMemo(() => {
     const loader = new THREE.TextureLoader()
+    const colorAllTexture = loader.load('/model/Breezm_Pbr_shadow_embedded_files/Color-small.jpg')
+    colorAllTexture.wrapS = THREE.RepeatWrapping
+    colorAllTexture.wrapT = THREE.RepeatWrapping
+    colorAllTexture.repeat.set(4, 4)
     return {
-      colorAll: loader.load('/model/Breezm_Pbr_shadow_embedded_files/Color-small.jpg'),
+      colorAll: colorAllTexture,
       colorMap: loader.load('/model/Breezm_Pbr_shadow_embedded_files/Color-map.jpg'),
       normal: loader.load('/model/Breezm_Pbr_shadow_embedded_files/Normal-small.jpg'),
       roughness: loader.load('/model/Breezm_Pbr_shadow_embedded_files/Roughness-small.jpg'),
