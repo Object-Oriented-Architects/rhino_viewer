@@ -2,6 +2,7 @@
 
 import dynamic from 'next/dynamic'
 import { Suspense, useState, useCallback } from 'react'
+import { Leva } from 'leva'
 
 // 로딩 스피너 컴포넌트
 const LoadingSpinner = ({ message }: { message: string }) => (
@@ -42,6 +43,7 @@ export default function Page() {
         {isModelLoading && <LoadingSpinner message='Loading...' />}
 
         <div className='absolute h-screen w-screen'>
+          <Leva collapsed />
           <View orbit className='relative h-full'>
             <Suspense fallback={null}>
               <Common />
