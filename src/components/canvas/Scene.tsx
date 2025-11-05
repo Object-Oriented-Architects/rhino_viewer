@@ -11,6 +11,7 @@ export default function Scene({ ...props }) {
   return (
     <Canvas
       {...props}
+      dpr={[1, 1.75]}
       onCreated={(state) => {
         state.gl.toneMapping = THREE.ACESFilmicToneMapping
         // state.gl.toneMapping = THREE.AgXToneMapping
