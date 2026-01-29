@@ -322,7 +322,7 @@ export function Ring({ onLoadComplete, ...props }) {
   >([])
 
   // Metal 재질 컨트롤
-  const Metal = useControls('Metal', ringMetalControls as any)
+  const Metal = useControls('Metal', ringMetalControls)
 
   // Gem (MeshRefractionMaterial) 컨트롤
   const Gem = useControls('Gem', {
