@@ -307,6 +307,8 @@ const ringMaterialGroups = [
       attenuationColor: { value: '#ff2f00' },
       // attenuationDistance: 작을수록 색이 진함
       attenuationDistance: { value: 0.5, min: 0.01, max: 10, step: 0.01 },
+      // dispersion: 보석의 "fire" 효과 (무지개빛 반짝임)
+      dispersion: { value: 0.3, min: 0, max: 2, step: 0.01 },
     },
   },
 ]
@@ -357,6 +359,7 @@ export function Ring({ onLoadComplete, ...props }) {
       clearcoatRoughness: defaults.clearcoatRoughness,
       specularColor: new THREE.Color(defaults.specularColor),
       specularIntensity: defaults.specularIntensity,
+      dispersion: defaults.dispersion,
       envMapIntensity: 1,
     })
     mat.name = 'Gem'
