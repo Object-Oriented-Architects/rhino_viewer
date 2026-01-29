@@ -43,9 +43,13 @@ export default function Page() {
 
         <div className='absolute h-screen w-screen'>
           <Leva collapsed />
-          <View orbit className='relative h-full'>
+          <View orbit orbitTarget={[0, 20, 0]} className='relative h-full'>
             <Suspense fallback={null}>
-              <Common hdrPath='/model/ring/env.hdr' />
+              <Common
+                hdrPath='/model/ring/env.hdr'
+                cameraPosition={[100, 150, -100]}
+                envDefaults={{ environmentIntensity: 0.7 }}
+              />
               <RingWithCallback onLoadComplete={handleModelLoadComplete} />
             </Suspense>
           </View>

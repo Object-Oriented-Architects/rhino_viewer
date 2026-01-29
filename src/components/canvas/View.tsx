@@ -7,15 +7,38 @@ import * as THREE from 'three'
 import { folder, useControls } from 'leva'
 import { RGBELoader } from 'three/examples/jsm/Addons.js'
 
+interface EnvDefaults {
+  fov?: number
+  environmentIntensity?: number
+  envRotY?: number
+  ambientLightIntensity?: number
+  directionalLightIntensity?: number
+}
+
 interface CommonProps {
   color?: string
   hdrPath?: string
+  cameraPosition?: [number, number, number]
+  envDefaults?: EnvDefaults
 }
 
-export const Common = ({ color, hdrPath = '/model/glasses/breezm.hdr' }: CommonProps) => {
+export const Common = ({
+  color,
+  hdrPath = '/model/glasses/breezm.hdr',
+  cameraPosition = [165, 65, 265],
+  envDefaults = {},
+}: CommonProps) => {
+  const {
+    fov: defaultFov = 30,
+    environmentIntensity: defaultEnvIntensity = 0.5,
+    envRotY: defaultEnvRotY = 340,
+    ambientLightIntensity: defaultAmbient = 0.5,
+    directionalLightIntensity: defaultDirectional = 0.2,
+  } = envDefaults
+
   const { fov } = useControls('View', {
     fov: {
-      value: 30,
+      value: defaultFov,
       min: 10,
       max: 120,
       step: 1,
@@ -36,7 +59,7 @@ export const Common = ({ color, hdrPath = '/model/glasses/breezm.hdr' }: CommonP
       options: ['threejs studio', 'hdr'],
     },
     environmentIntensity: {
-      value: 0.5,
+      value: defaultEnvIntensity,
       min: 0,
       max: 1,
       step: 0.01,
@@ -48,7 +71,7 @@ export const Common = ({ color, hdrPath = '/model/glasses/breezm.hdr' }: CommonP
       step: 0.01,
     },
     envRotY: {
-      value: 340,
+      value: defaultEnvRotY,
       min: 0,
       max: 360,
       step: 0.01,
@@ -60,13 +83,13 @@ export const Common = ({ color, hdrPath = '/model/glasses/breezm.hdr' }: CommonP
       step: 0.01,
     },
     ambientLightIntensity: {
-      value: 0.5,
+      value: defaultAmbient,
       min: 0,
       max: 10,
       step: 0.01,
     },
     directionalLightInentsity: {
-      value: 0.2,
+      value: defaultDirectional,
       min: 0,
       max: 10,
       step: 0.01,
@@ -111,7 +134,7 @@ export const Common = ({ color, hdrPath = '/model/glasses/breezm.hdr' }: CommonP
       {/* <pointLight position={[-10, 5, 10]} intensity={0.5} />
       <pointLight position={[10, -5, -10]} intensity={0.3} color='#4080ff' /> */}
 
-      <PerspectiveCamera makeDefault fov={fov} position={[165, 65, 265]} />
+      <PerspectiveCamera makeDefault fov={fov} position={cameraPosition} />
     </Suspense>
   )
 }
@@ -119,9 +142,10 @@ export const Common = ({ color, hdrPath = '/model/glasses/breezm.hdr' }: CommonP
 interface ViewProps extends React.HTMLAttributes<HTMLDivElement> {
   children?: React.ReactNode
   orbit?: boolean
+  orbitTarget?: [number, number, number]
 }
 
-const View = forwardRef<HTMLDivElement, ViewProps>(({ children, orbit, ...props }, ref) => {
+const View = forwardRef<HTMLDivElement, ViewProps>(({ children, orbit, orbitTarget = [0, 0, 0], ...props }, ref) => {
   const localRef = useRef(null)
   useImperativeHandle(ref, () => localRef.current)
 
@@ -131,7 +155,7 @@ const View = forwardRef<HTMLDivElement, ViewProps>(({ children, orbit, ...props 
       <Three>
         <ViewImpl track={localRef}>
           {children}
-          {orbit && <OrbitControls enableDamping={false} />}
+          {orbit && <OrbitControls enableDamping={false} target={orbitTarget} />}
         </ViewImpl>
       </Three>
     </>

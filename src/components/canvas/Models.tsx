@@ -32,6 +32,8 @@ type MaterialConfig = {
   saturation?: number
   lightness?: number
   multiplyScalar?: number
+  attenuationColor?: string
+  attenuationDistance?: number
 }
 
 const applyMaterialSettings = (material: THREE.MeshPhysicalMaterial, values: MaterialConfig, textures?: any) => {
@@ -63,6 +65,8 @@ const applyMaterialSettings = (material: THREE.MeshPhysicalMaterial, values: Mat
   if (values.thickness !== undefined) material.thickness = values.thickness
   if (values.iridescence !== undefined) material.iridescence = values.iridescence
   if (values.dispersion !== undefined) material.dispersion = values.dispersion
+  if (values.attenuationColor !== undefined) material.attenuationColor.set(values.attenuationColor)
+  if (values.attenuationDistance !== undefined) material.attenuationDistance = values.attenuationDistance
 
   if (values.hueShift !== undefined && values.saturation !== undefined && values.lightness !== undefined)
     material.color.setHSL(values.hueShift / 360, values.saturation, values.lightness)
@@ -273,9 +277,9 @@ const ringMaterialGroups = [
   {
     key: 'Metal',
     controls: {
-      color: { value: '#ffd700' },
+      color: { value: '#dfdfdf' },
       metalness: { value: 1.0, min: 0, max: 1, step: 0.01 },
-      roughness: { value: 0.15, min: 0, max: 1, step: 0.01 },
+      roughness: { value: 0.05, min: 0, max: 1, step: 0.01 },
       specularColor: { value: '#ffffff' },
       specularIntensity: { value: 1, min: 0, max: 1, step: 0.01 },
     },
@@ -283,17 +287,26 @@ const ringMaterialGroups = [
   {
     key: 'Gem',
     controls: {
-      color: { value: '#ff0050' },
-      ior: { value: 2.4, min: 1, max: 3, step: 0.01 },
-      opacity: { value: 1, min: 0, max: 1, step: 0.01 },
+      // 기본 색상은 흰색, attenuationColor가 보석 색상 담당
+      color: { value: '#ffffff' },
+      metalness: { value: 0, min: 0, max: 1, step: 0.01 },
       roughness: { value: 0, min: 0, max: 1, step: 0.01 },
-      transmission: { value: 1, min: 0, max: 1, step: 0.01 },
-      thickness: { value: 2, min: 0, max: 10, step: 0.1 },
-      iridescence: { value: 0.3, min: 0, max: 1, step: 0.01 },
-      dispersion: { value: 0.5, min: 0, max: 1, step: 0.01 },
+      // 루비 IOR: 1.76, 다이아몬드: 2.42
+      ior: { value: 2, min: 1, max: 3, step: 0.01 },
       reflectivity: { value: 1, min: 0, max: 1, step: 0.01 },
+      specularColor: { value: '#ffffff' },
+      specularIntensity: { value: 1, min: 0, max: 1, step: 0.01 },
       clearcoat: { value: 1, min: 0, max: 1, step: 0.01 },
       clearcoatRoughness: { value: 0, min: 0, max: 1, step: 0.01 },
+      // transmission: 1 = 완전 투과, thickness와 함께 사용
+      transmission: { value: 1, min: 0, max: 1, step: 0.01 },
+      // thickness: 모델 크기에 맞게 조정 (중요!)
+      thickness: { value: 5, min: 0, max: 50, step: 0.5 },
+      opacity: { value: 1, min: 0, max: 1, step: 0.01 },
+      // 보석 색상은 attenuationColor로 설정
+      attenuationColor: { value: '#ff2f00' },
+      // attenuationDistance: 작을수록 색이 진함
+      attenuationDistance: { value: 0.5, min: 0.01, max: 10, step: 0.01 },
     },
   },
 ]
@@ -318,28 +331,71 @@ export function Ring({ onLoadComplete, ...props }) {
     Gem,
   } as any
 
-  // 모델 로드 후 재질 설정
+  // ringMaterialGroups에서 기본값 추출하는 헬퍼
+  const getDefaults = (key: string) => {
+    const group = ringMaterialGroups.find((g) => g.key === key)
+    if (!group) return {}
+    return Object.fromEntries(Object.entries(group.controls).map(([k, v]) => [k, (v as any).value]))
+  }
+
+  // 새로운 재질 생성 (ringMaterialGroups 기본값 사용 - 단일 소스)
+  const gemMaterial = useMemo(() => {
+    const defaults = getDefaults('Gem')
+    const mat = new THREE.MeshPhysicalMaterial({
+      color: new THREE.Color(defaults.color),
+      metalness: defaults.metalness,
+      roughness: defaults.roughness,
+      ior: defaults.ior,
+      reflectivity: defaults.reflectivity,
+      transmission: defaults.transmission,
+      thickness: defaults.thickness,
+      opacity: defaults.opacity,
+      transparent: true,
+      attenuationColor: new THREE.Color(defaults.attenuationColor),
+      attenuationDistance: defaults.attenuationDistance,
+      clearcoat: defaults.clearcoat,
+      clearcoatRoughness: defaults.clearcoatRoughness,
+      specularColor: new THREE.Color(defaults.specularColor),
+      specularIntensity: defaults.specularIntensity,
+      envMapIntensity: 1,
+    })
+    mat.name = 'Gem'
+    return mat
+  }, [])
+
+  const metalMaterial = useMemo(() => {
+    const defaults = getDefaults('Metal')
+    const mat = new THREE.MeshPhysicalMaterial({
+      color: new THREE.Color(defaults.color),
+      metalness: defaults.metalness,
+      roughness: defaults.roughness,
+      specularColor: new THREE.Color(defaults.specularColor),
+      specularIntensity: defaults.specularIntensity,
+      envMapIntensity: 1,
+    })
+    mat.name = 'Metal'
+    return mat
+  }, [])
+
+  // 모델 로드 후 재질 할당
   useEffect(() => {
     if (!modelObj) return
     matRef.current = { Metal: [], Gem: [] }
 
     modelObj.traverse((child) => {
       if (child instanceof THREE.Mesh) {
-        let material = child.material
+        const originalMaterial = child.material
 
-        if (material instanceof THREE.MeshPhysicalMaterial) {
-          console.log('Ring material:', material.name)
+        if (originalMaterial instanceof THREE.MeshPhysicalMaterial) {
+          console.log('Ring material:', originalMaterial.name)
 
-          if (matRef.current[material.name]) {
-            matRef.current[material.name].push(material)
-          }
-
-          const group = ringMaterialGroups.find((g) => g.key === material.name)
-          if (group) {
-            const initialValues = Object.fromEntries(
-              Object.entries(group.controls).map(([key, config]) => [key, (config as any).value]),
-            )
-            applyMaterialSettings(material, initialValues)
+          // 재질 이름에 따라 새로 생성한 재질 할당
+          if (originalMaterial.name === 'Gem') {
+            child.material = gemMaterial
+            matRef.current['Gem'].push(gemMaterial)
+          } else if (originalMaterial.name === 'Metal') {
+            child.material = metalMaterial
+            matRef.current['Metal'].push(metalMaterial)
           }
         }
       }
@@ -348,12 +404,15 @@ export function Ring({ onLoadComplete, ...props }) {
     if (onLoadComplete) {
       onLoadComplete()
     }
-  }, [modelObj, onLoadComplete])
+  }, [modelObj, onLoadComplete, gemMaterial, metalMaterial])
 
   useEffect(() => {
     ringMaterialGroups.forEach(({ key }) => {
       const materials = matRef.current[key] ?? []
       const values = controlValues[key]
+      // if (key === 'Gem') {
+      //   console.log('Gem values:', values)
+      // }
       materials.forEach((material) => {
         if (material) {
           applyMaterialSettings(material, values)
