@@ -6,6 +6,7 @@ import { Three } from '@/helpers/components/Three'
 import * as THREE from 'three'
 import { folder, useControls } from 'leva'
 import { RGBELoader } from 'three/examples/jsm/Addons.js'
+import { EffectComposer, Bloom } from '@react-three/postprocessing'
 
 interface EnvDefaults {
   fov?: number
@@ -164,3 +165,47 @@ const View = forwardRef<HTMLDivElement, ViewProps>(({ children, orbit, orbitTarg
 View.displayName = 'View'
 
 export { View }
+
+interface BloomDefaults {
+  enabled?: boolean
+  intensity?: number
+  luminanceThreshold?: number
+  luminanceSmoothing?: number
+  radius?: number
+}
+
+interface EffectsProps {
+  bloomDefaults?: BloomDefaults
+}
+
+export function Effects({ bloomDefaults = {} }: EffectsProps) {
+  const {
+    enabled: defaultEnabled = false,
+    intensity: defaultIntensity = 2,
+    luminanceThreshold: defaultThreshold = 1,
+    luminanceSmoothing: defaultSmoothing = 1,
+    radius: defaultRadius = 0.8,
+  } = bloomDefaults
+
+  const { enabled, intensity, luminanceThreshold, luminanceSmoothing, radius } = useControls('Bloom', {
+    enabled: { value: defaultEnabled },
+    intensity: { value: defaultIntensity, min: 0, max: 5, step: 0.01 },
+    luminanceThreshold: { value: defaultThreshold, min: 0, max: 1, step: 0.01 },
+    luminanceSmoothing: { value: defaultSmoothing, min: 0, max: 1, step: 0.01 },
+    radius: { value: defaultRadius, min: 0, max: 1, step: 0.01 },
+  })
+
+  if (!enabled) return null
+
+  return (
+    <EffectComposer>
+      <Bloom
+        intensity={intensity}
+        luminanceThreshold={luminanceThreshold}
+        luminanceSmoothing={luminanceSmoothing}
+        radius={radius}
+        mipmapBlur
+      />
+    </EffectComposer>
+  )
+}

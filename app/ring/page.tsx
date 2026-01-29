@@ -21,6 +21,7 @@ const LoadingSpinner = ({ message }: { message: string }) => (
 
 const View = dynamic(() => import('@/components/canvas/View').then((mod) => mod.View), { ssr: false })
 const Common = dynamic(() => import('@/components/canvas/View').then((mod) => mod.Common), { ssr: false })
+const Effects = dynamic(() => import('@/components/canvas/View').then((mod) => mod.Effects), { ssr: false })
 
 // Ring 컴포넌트를 동적으로 로드하되, 로딩 완료 콜백을 지원하도록 래핑
 const RingWithCallback = ({ onLoadComplete }: { onLoadComplete: () => void }) => {
@@ -51,6 +52,7 @@ export default function Page() {
                 envDefaults={{ environmentIntensity: 0.7 }}
               />
               <RingWithCallback onLoadComplete={handleModelLoadComplete} />
+              <Effects bloomDefaults={{ enabled: true }} />
             </Suspense>
           </View>
         </div>

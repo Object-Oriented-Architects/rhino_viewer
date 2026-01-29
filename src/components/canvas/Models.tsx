@@ -308,7 +308,7 @@ const ringMaterialGroups = [
       // attenuationDistance: 작을수록 색이 진함
       attenuationDistance: { value: 0.5, min: 0.01, max: 10, step: 0.01 },
       // dispersion: 보석의 "fire" 효과 (무지개빛 반짝임)
-      dispersion: { value: 0.3, min: 0, max: 2, step: 0.01 },
+      dispersion: { value: 0.3, min: 0, max: 10, step: 0.01 },
     },
   },
 ]
