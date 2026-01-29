@@ -157,24 +157,24 @@ const materialGroups = [
 ]
 
 export function Breezm({ onLoadComplete, ...props }) {
-  const filepath = '/model/Breezm_Pbr_shadow.3dm'
+  const filepath = '/model/glasses/Breezm_Pbr_shadow.3dm'
 
   // 텍스처들을 미리 로드
   const textures = useMemo(() => {
     const loader = new THREE.TextureLoader()
-    const colorAllTexture = loader.load('/model/Breezm_Pbr_shadow_embedded_files/Color-small.jpg')
+    const colorAllTexture = loader.load('/model/glasses/Breezm_Pbr_shadow_embedded_files/Color-small.jpg')
     colorAllTexture.wrapS = THREE.RepeatWrapping
     colorAllTexture.wrapT = THREE.RepeatWrapping
     colorAllTexture.repeat.set(4, 4)
     return {
       colorAll: colorAllTexture,
-      colorMap: loader.load('/model/Breezm_Pbr_shadow_embedded_files/Color-map.jpg'),
-      normal: loader.load('/model/Breezm_Pbr_shadow_embedded_files/Normal-small.jpg'),
-      roughness: loader.load('/model/Breezm_Pbr_shadow_embedded_files/Roughness-small.jpg'),
-      curvature: loader.load('/model/Breezm_Pbr_shadow_embedded_files/Curvature.png'),
-      curvatureInvert: loader.load('/model/Breezm_Pbr_shadow_embedded_files/Curvature_invert.png'),
-      shadow: loader.load('/model/Breezm_Pbr_shadow_embedded_files/shadow.jpg'),
-      ShadowAlpha: loader.load('/model/Breezm_Pbr_shadow_embedded_files/gradient_02.jpg'),
+      colorMap: loader.load('/model/glasses/Breezm_Pbr_shadow_embedded_files/Color-map.jpg'),
+      normal: loader.load('/model/glasses/Breezm_Pbr_shadow_embedded_files/Normal-small.jpg'),
+      roughness: loader.load('/model/glasses/Breezm_Pbr_shadow_embedded_files/Roughness-small.jpg'),
+      curvature: loader.load('/model/glasses/Breezm_Pbr_shadow_embedded_files/Curvature.png'),
+      curvatureInvert: loader.load('/model/glasses/Breezm_Pbr_shadow_embedded_files/Curvature_invert.png'),
+      shadow: loader.load('/model/glasses/Breezm_Pbr_shadow_embedded_files/shadow.jpg'),
+      ShadowAlpha: loader.load('/model/glasses/Breezm_Pbr_shadow_embedded_files/gradient_02.jpg'),
     }
   }, [])
 
@@ -260,6 +260,107 @@ export function Breezm({ onLoadComplete, ...props }) {
       })
     })
   }, [Temple, TempleTip, NosePad, Glass, Frame])
+
+  return (
+    <group rotation={[-Math.PI / 2, 0, 0]} {...props}>
+      <primitive object={modelObj} />
+    </group>
+  )
+}
+
+// Ring 재질 그룹 정의
+const ringMaterialGroups = [
+  {
+    key: 'Metal',
+    controls: {
+      color: { value: '#ffd700' },
+      metalness: { value: 1.0, min: 0, max: 1, step: 0.01 },
+      roughness: { value: 0.15, min: 0, max: 1, step: 0.01 },
+      specularColor: { value: '#ffffff' },
+      specularIntensity: { value: 1, min: 0, max: 1, step: 0.01 },
+    },
+  },
+  {
+    key: 'Gem',
+    controls: {
+      color: { value: '#ff0050' },
+      ior: { value: 2.4, min: 1, max: 3, step: 0.01 },
+      opacity: { value: 1, min: 0, max: 1, step: 0.01 },
+      roughness: { value: 0, min: 0, max: 1, step: 0.01 },
+      transmission: { value: 1, min: 0, max: 1, step: 0.01 },
+      thickness: { value: 2, min: 0, max: 10, step: 0.1 },
+      iridescence: { value: 0.3, min: 0, max: 1, step: 0.01 },
+      dispersion: { value: 0.5, min: 0, max: 1, step: 0.01 },
+      reflectivity: { value: 1, min: 0, max: 1, step: 0.01 },
+      clearcoat: { value: 1, min: 0, max: 1, step: 0.01 },
+      clearcoatRoughness: { value: 0, min: 0, max: 1, step: 0.01 },
+    },
+  },
+]
+
+export function Ring({ onLoadComplete, ...props }) {
+  const filepath = '/model/ring/ring.3dm'
+
+  const modelObj = useLoader(Rhino3dmLoader, filepath, (loader) => {
+    loader.setLibraryPath('https://cdn.jsdelivr.net/npm/rhino3dm@8.17.0/')
+  })
+
+  const matRef = useRef<Record<string, THREE.MeshPhysicalMaterial[]>>({
+    Metal: [],
+    Gem: [],
+  })
+
+  const Metal = useControls('Metal', ringMaterialGroups[0].controls as any)
+  const Gem = useControls('Gem', ringMaterialGroups[1].controls as any)
+
+  const controlValues = {
+    Metal,
+    Gem,
+  } as any
+
+  // 모델 로드 후 재질 설정
+  useEffect(() => {
+    if (!modelObj) return
+    matRef.current = { Metal: [], Gem: [] }
+
+    modelObj.traverse((child) => {
+      if (child instanceof THREE.Mesh) {
+        let material = child.material
+
+        if (material instanceof THREE.MeshPhysicalMaterial) {
+          console.log('Ring material:', material.name)
+
+          if (matRef.current[material.name]) {
+            matRef.current[material.name].push(material)
+          }
+
+          const group = ringMaterialGroups.find((g) => g.key === material.name)
+          if (group) {
+            const initialValues = Object.fromEntries(
+              Object.entries(group.controls).map(([key, config]) => [key, (config as any).value]),
+            )
+            applyMaterialSettings(material, initialValues)
+          }
+        }
+      }
+    })
+
+    if (onLoadComplete) {
+      onLoadComplete()
+    }
+  }, [modelObj, onLoadComplete])
+
+  useEffect(() => {
+    ringMaterialGroups.forEach(({ key }) => {
+      const materials = matRef.current[key] ?? []
+      const values = controlValues[key]
+      materials.forEach((material) => {
+        if (material) {
+          applyMaterialSettings(material, values)
+        }
+      })
+    })
+  }, [Metal, Gem])
 
   return (
     <group rotation={[-Math.PI / 2, 0, 0]} {...props}>

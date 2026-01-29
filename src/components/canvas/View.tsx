@@ -9,9 +9,10 @@ import { RGBELoader } from 'three/examples/jsm/Addons.js'
 
 interface CommonProps {
   color?: string
+  hdrPath?: string
 }
 
-export const Common = ({ color }: CommonProps) => {
+export const Common = ({ color, hdrPath = '/model/glasses/breezm.hdr' }: CommonProps) => {
   const { fov } = useControls('View', {
     fov: {
       value: 30,
@@ -84,7 +85,7 @@ export const Common = ({ color }: CommonProps) => {
       {/* 환경 맵 추가 - 크롬 반사를 위해 */}
       <Environment
         preset={envMap === 'threejs studio' ? 'studio' : undefined}
-        files={envMap === 'hdr' ? '/model/breezm.hdr' : undefined}
+        files={envMap === 'hdr' ? hdrPath : undefined}
         environmentIntensity={environmentIntensity}
         environmentRotation={envRot}
         backgroundRotation={envRot}
