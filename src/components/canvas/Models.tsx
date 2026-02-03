@@ -1,6 +1,6 @@
 'use client'
 
-import { ShadowAlpha, useGLTF, MeshRefractionMaterial, useEnvironment, CubeCamera } from '@react-three/drei'
+import { ShadowAlpha, useGLTF, MeshRefractionMaterial, useEnvironment, CubeCamera, Caustics } from '@react-three/drei'
 import { useLoader, useThree } from '@react-three/fiber'
 import { useBloomContext } from './View'
 import { Rhino3dmLoader } from 'three/examples/jsm/loaders/3DMLoader.js'
@@ -598,32 +598,38 @@ export function Ring({
             />
           ))}
 
-          {/* Gem 메시들 - MeshRefractionMaterial */}
-          {gemMeshes.map((meshInfo, index) => (
-            <mesh
-              key={`gem-${index}`}
-              geometry={meshInfo.geometry}
-              position={meshInfo.position}
-              rotation={meshInfo.rotation}
-              scale={meshInfo.scale}
-              ref={(mesh) => {
-                if (mesh && bloomContext) {
-                  bloomContext.registerMesh(mesh)
-                }
-              }}
-            >
-              <MeshRefractionMaterial
-                envMap={envMap}
-                color={gemControls.color}
-                ior={gemControls.ior}
-                bounces={gemControls.bounces}
-                fresnel={gemControls.fresnel}
-                aberrationStrength={gemControls.aberrationStrength}
-                fastChroma={gemControls.fastChroma}
-                toneMapped={false}
-              />
-            </mesh>
-          ))}
+          {/* Gem 메시들 - CubeCamera + MeshRefractionMaterial */}
+          <CubeCamera resolution={256} frames={1} envMap={envMap}>
+            {(cubeTexture) => (
+              <>
+                {gemMeshes.map((meshInfo, index) => (
+                  <mesh
+                    key={`gem-${index}`}
+                    geometry={meshInfo.geometry}
+                    position={meshInfo.position}
+                    rotation={meshInfo.rotation}
+                    scale={meshInfo.scale}
+                    ref={(mesh) => {
+                      if (mesh && bloomContext) {
+                        bloomContext.registerMesh(mesh)
+                      }
+                    }}
+                  >
+                    <MeshRefractionMaterial
+                      envMap={cubeTexture}
+                      color={gemControls.color}
+                      ior={gemControls.ior}
+                      bounces={gemControls.bounces}
+                      fresnel={gemControls.fresnel}
+                      aberrationStrength={gemControls.aberrationStrength}
+                      fastChroma={gemControls.fastChroma}
+                      toneMapped={false}
+                    />
+                  </mesh>
+                ))}
+              </>
+            )}
+          </CubeCamera>
         </group>
       </group>
     </>

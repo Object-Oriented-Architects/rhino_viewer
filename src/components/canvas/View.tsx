@@ -344,6 +344,7 @@ export function Effects({ bloomDefaults = {} }: EffectsProps) {
         luminanceThreshold={luminanceThreshold}
         luminanceSmoothing={luminanceSmoothing}
         radius={radius}
+        levels={9}
         mipmapBlur
       />
     </EffectComposer>
