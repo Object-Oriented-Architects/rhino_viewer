@@ -211,21 +211,22 @@ export function Effects({ bloomDefaults = {} }: EffectsProps) {
 
   const { enabled, intensity, luminanceThreshold, luminanceSmoothing, radius } = useControls('Bloom', {
     enabled: { value: defaultEnabled },
-    intensity: { value: defaultIntensity, min: 0, max: 5, step: 0.01 },
-    luminanceThreshold: { value: defaultThreshold, min: 0, max: 1, step: 0.01 },
-    luminanceSmoothing: { value: defaultSmoothing, min: 0, max: 1, step: 0.01 },
-    radius: { value: defaultRadius, min: 0, max: 1, step: 0.01 },
+    intensity: { value: defaultIntensity, min: 0, max: 10, step: 0.01 },
+    luminanceThreshold: { value: defaultThreshold, min: 0, max: 2, step: 0.01 },
+    luminanceSmoothing: { value: defaultSmoothing, min: 0, max: 2, step: 0.01 },
+    radius: { value: defaultRadius, min: 0, max: 2, step: 0.01 },
   })
 
   // EffectComposer를 항상 마운트하고 intensity로 제어 (마운트/언마운트 깜빡임 방지)
+  // disableNormalPass: MeshRefractionMaterial과의 충돌 방지
   return (
-    <EffectComposer multisampling={4}>
+    <EffectComposer multisampling={0} disableNormalPass>
       <Bloom
         intensity={enabled ? intensity : 0}
         luminanceThreshold={luminanceThreshold}
         luminanceSmoothing={luminanceSmoothing}
         radius={radius}
-        mipmapBlur={false}
+        mipmapBlur
       />
     </EffectComposer>
   )

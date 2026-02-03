@@ -54,15 +54,15 @@ export default function Page() {
                 }}
               />
               <Ring onLoadComplete={handleModelLoadComplete} />
-              {/* <Effects
+              <Effects
                 bloomDefaults={{
                   enabled: true,
-                  intensity: 1.5,
-                  luminanceThreshold: 0.9,
-                  luminanceSmoothing: 0.4,
-                  radius: 0.8,
+                  intensity: 0.5,
+                  luminanceThreshold: 1.0,
+                  luminanceSmoothing: 0.9,
+                  radius: 0.4,
                 }}
-              /> */}
+              />
             </Suspense>
           </View>
         </div>
