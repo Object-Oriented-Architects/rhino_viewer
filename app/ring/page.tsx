@@ -82,6 +82,7 @@ export default function Page() {
                 target={config.orbitTarget}
                 minDistance={5}
                 maxDistance={10}
+                enablePan={false}
               />
               <Suspense fallback={null}>
                 <Ring
