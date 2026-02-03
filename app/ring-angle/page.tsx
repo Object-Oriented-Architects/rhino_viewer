@@ -43,7 +43,7 @@ export default function Page() {
             <Suspense fallback={null}>
               <Common
                 color='#ffffff'
-                hdrPath='/model/ring-260203/ring800.hdr'
+                hdrPath='/model/ring-260203-angle/ringCont800.hdr'
                 cameraPosition={[6, 8, 6]}
                 envDefaults={{
                   fov: 45,
@@ -53,7 +53,10 @@ export default function Page() {
                   directionalLightIntensity: 0.8,
                 }}
               />
-              <Ring onLoadComplete={handleModelLoadComplete} />
+              <Ring
+                modelPath='/model/ring-260203-angle/Ring_Mesh_0203.3dm'
+                onLoadComplete={handleModelLoadComplete}
+              />
               <Effects
                 bloomDefaults={{
                   enabled: true,

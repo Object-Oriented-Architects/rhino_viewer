@@ -1,12 +1,12 @@
 'use client'
 
-import { forwardRef, Suspense, useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react'
+import { forwardRef, Suspense, useEffect, useImperativeHandle, useMemo, useRef, createContext, useContext, useState, useCallback } from 'react'
 import { SoftShadows, OrbitControls, PerspectiveCamera, View as ViewImpl, Environment, ContactShadows } from '@react-three/drei'
 import { Three } from '@/helpers/components/Three'
 import * as THREE from 'three'
 import { folder, useControls } from 'leva'
 import { RGBELoader } from 'three/examples/jsm/Addons.js'
-import { EffectComposer, Bloom } from '@react-three/postprocessing'
+import { EffectComposer, Bloom, SelectiveBloom } from '@react-three/postprocessing'
 
 interface EnvDefaults {
   fov?: number
@@ -200,6 +200,80 @@ export function Shadows({ position = [0, -0.5, 0], opacity = 0.5, scale = 10, bl
   )
 }
 
+// SelectiveBloom Context
+interface BloomContextType {
+  registerMesh: (mesh: THREE.Mesh) => void
+  unregisterMesh: (mesh: THREE.Mesh) => void
+  lightRef: React.RefObject<THREE.DirectionalLight>
+}
+
+const BloomContext = createContext<BloomContextType | null>(null)
+
+export function useBloomContext() {
+  return useContext(BloomContext)
+}
+
+interface BloomProviderProps {
+  children: React.ReactNode
+  bloomDefaults?: BloomDefaults
+}
+
+export function BloomProvider({ children, bloomDefaults = {} }: BloomProviderProps) {
+  const [meshes, setMeshes] = useState<THREE.Mesh[]>([])
+  const lightRef = useRef<THREE.DirectionalLight>(null!)
+
+  const registerMesh = useCallback((mesh: THREE.Mesh) => {
+    setMeshes(prev => {
+      if (prev.includes(mesh)) return prev
+      return [...prev, mesh]
+    })
+  }, [])
+
+  const unregisterMesh = useCallback((mesh: THREE.Mesh) => {
+    setMeshes(prev => prev.filter(m => m !== mesh))
+  }, [])
+
+  const {
+    enabled: defaultEnabled = true,
+    intensity: defaultIntensity = 1,
+    luminanceThreshold: defaultThreshold = 0.9,
+    luminanceSmoothing: defaultSmoothing = 0.4,
+  } = bloomDefaults
+
+  const { enabled, intensity, luminanceThreshold, luminanceSmoothing } = useControls('Bloom', {
+    enabled: { value: defaultEnabled },
+    intensity: { value: defaultIntensity, min: 0, max: 5, step: 0.01 },
+    luminanceThreshold: { value: defaultThreshold, min: 0, max: 2, step: 0.01 },
+    luminanceSmoothing: { value: defaultSmoothing, min: 0, max: 2, step: 0.01 },
+  })
+
+  const contextValue = useMemo(() => ({
+    registerMesh,
+    unregisterMesh,
+    lightRef,
+  }), [registerMesh, unregisterMesh])
+
+  return (
+    <BloomContext.Provider value={contextValue}>
+      {/* SelectiveBloom용 조명 */}
+      <directionalLight ref={lightRef} position={[5, 5, 5]} intensity={0} />
+
+      {children}
+
+      <EffectComposer multisampling={0} enableNormalPass={false}>
+        <SelectiveBloom
+          intensity={enabled ? intensity : 0}
+          luminanceThreshold={luminanceThreshold}
+          luminanceSmoothing={luminanceSmoothing}
+          lights={lightRef.current ? [lightRef.current] : []}
+          selection={meshes}
+          mipmapBlur
+        />
+      </EffectComposer>
+    </BloomContext.Provider>
+  )
+}
+
 export function Effects({ bloomDefaults = {} }: EffectsProps) {
   const {
     enabled: defaultEnabled = false,
@@ -231,3 +305,4 @@ export function Effects({ bloomDefaults = {} }: EffectsProps) {
     </EffectComposer>
   )
 }
+

@@ -2,6 +2,7 @@
 
 import { ShadowAlpha, useGLTF, MeshRefractionMaterial, useEnvironment, CubeCamera } from '@react-three/drei'
 import { useLoader, useThree } from '@react-three/fiber'
+import { useBloomContext } from './View'
 import { Rhino3dmLoader } from 'three/examples/jsm/loaders/3DMLoader.js'
 import { useFrame } from '@react-three/fiber'
 import * as THREE from 'three'
@@ -280,14 +281,26 @@ interface MeshInfo {
   scale: THREE.Vector3
 }
 
-export function Ring({ onLoadComplete, ...props }) {
-  // 새 모델 경로
-  const modelPath = '/model/ring-260203/Ring_Mesh_0203.3dm'
-  const shadowTexturePath = '/model/ring-260203/shadow.jpg'
+interface RingProps {
+  onLoadComplete?: () => void
+  modelPath?: string
+  shadowTexturePath?: string
+  [key: string]: any
+}
+
+export function Ring({
+  onLoadComplete,
+  modelPath = '/model/ring-260203/Ring_Mesh_0203.3dm',
+  shadowTexturePath = '/model/ring-260203/shadow.jpg',
+  ...props
+}: RingProps) {
 
   // 씬의 환경맵 사용 (Common에서 설정한 HDR - Leva로 제어 가능)
   const { scene } = useThree()
   const envMap = scene.environment
+
+  // SelectiveBloom context
+  const bloomContext = useBloomContext()
 
   // 3dm 모델 로드 - geometry만 사용
   const modelObj = useLoader(Rhino3dmLoader, modelPath, (loader) => {
@@ -311,13 +324,13 @@ export function Ring({ onLoadComplete, ...props }) {
     }
   }, [])
 
-  // Metal 컨트롤
+  // Metal 컨트롤 - envMapIntensity를 낮춰서 bloom threshold 이하로 유지
   const metalControls = useControls('Metal', {
     color: { value: '#ffffff' },
-    brightness: { value: 1.0, min: 0.5, max: 10.0, step: 0.01 },
+    brightness: { value: 1.0, min: 0.5, max: 2.0, step: 0.01 },
     metalness: { value: 1.0, min: 0, max: 1, step: 0.01 },
-    roughness: { value: 0, min: 0, max: 1, step: 0.01 },
-    envMapIntensity: { value: 1.5, min: 0, max: 5, step: 0.01 },
+    roughness: { value: 0.1, min: 0, max: 1, step: 0.01 }, // 약간의 roughness로 반사 줄임
+    envMapIntensity: { value: 0.8, min: 0, max: 2, step: 0.01 }, // 낮춰서 bloom 제외
     flatShading: { value: false },
   })
 
@@ -339,6 +352,7 @@ export function Ring({ onLoadComplete, ...props }) {
   })
 
   // Metal 재질 생성 (PBR - 씬 환경맵 자동 사용)
+  // toneMapped: true로 bloom에서 제외 (1.0 이하로 클램프)
   const metalMaterial = useMemo(() => {
     const color = new THREE.Color(metalControls.color)
     color.multiplyScalar(metalControls.brightness)
@@ -349,6 +363,7 @@ export function Ring({ onLoadComplete, ...props }) {
       roughness: metalControls.roughness,
       envMapIntensity: metalControls.envMapIntensity,
       flatShading: metalControls.flatShading,
+      toneMapped: true, // bloom 제외 - HDR 값을 1.0 이하로 클램프
     })
   }, [metalControls])
 
@@ -465,7 +480,7 @@ export function Ring({ onLoadComplete, ...props }) {
             />
           ))}
 
-          {/* Gem 메시들 - MeshRefractionMaterial */}
+          {/* Gem 메시들 - MeshRefractionMaterial + SelectiveBloom */}
           {gemMeshes.map((meshInfo, index) => (
             <mesh
               key={`gem-${index}`}
@@ -473,6 +488,11 @@ export function Ring({ onLoadComplete, ...props }) {
               position={meshInfo.position}
               rotation={meshInfo.rotation}
               scale={meshInfo.scale}
+              ref={(mesh) => {
+                if (mesh && bloomContext) {
+                  bloomContext.registerMesh(mesh)
+                }
+              }}
             >
               <MeshRefractionMaterial
                 envMap={envMap}
