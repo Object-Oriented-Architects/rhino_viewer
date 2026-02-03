@@ -1,7 +1,7 @@
 'use client'
 
 import { forwardRef, Suspense, useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react'
-import { SoftShadows, OrbitControls, PerspectiveCamera, View as ViewImpl, Environment } from '@react-three/drei'
+import { SoftShadows, OrbitControls, PerspectiveCamera, View as ViewImpl, Environment, ContactShadows } from '@react-three/drei'
 import { Three } from '@/helpers/components/Three'
 import * as THREE from 'three'
 import { folder, useControls } from 'leva'
@@ -176,6 +176,27 @@ interface BloomDefaults {
 
 interface EffectsProps {
   bloomDefaults?: BloomDefaults
+}
+
+interface ShadowsProps {
+  position?: [number, number, number]
+  opacity?: number
+  scale?: number
+  blur?: number
+}
+
+export function Shadows({ position = [0, -0.5, 0], opacity = 0.5, scale = 10, blur = 2.5 }: ShadowsProps) {
+  return (
+    <ContactShadows
+      position={position}
+      opacity={opacity}
+      scale={scale}
+      blur={blur}
+      far={4}
+      resolution={512}
+      color='#000000'
+    />
+  )
 }
 
 export function Effects({ bloomDefaults = {} }: EffectsProps) {

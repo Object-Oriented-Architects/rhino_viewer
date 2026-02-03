@@ -295,6 +295,7 @@ export function Ring({ onLoadComplete, ...props }) {
   // 새 모델 경로
   const modelPath = '/model/ring-260203/Ring_Mesh_0203.3dm'
   const hdrPath = '/model/ring-260203/ring800.hdr'
+  const shadowTexturePath = '/model/ring-260203/shadow.jpg'
 
   // 환경맵 로드 (Gem용)
   const envMap = useLoader(RGBELoader, hdrPath)
@@ -312,9 +313,13 @@ export function Ring({ onLoadComplete, ...props }) {
     rose: null,
   })
 
+  // Shadow 텍스처 상태
+  const [shadowTexture, setShadowTexture] = useState<THREE.Texture | null>(null)
+
   // 추출된 메시 정보 (geometry만)
   const [metalMeshes, setMetalMeshes] = useState<MeshInfo[]>([])
   const [gemMeshes, setGemMeshes] = useState<MeshInfo[]>([])
+  const [shadowMesh, setShadowMesh] = useState<MeshInfo | null>(null)
   const [isReady, setIsReady] = useState(false)
 
   // Matcap 텍스처 로딩
@@ -333,6 +338,12 @@ export function Ring({ onLoadComplete, ...props }) {
     Promise.all(loadPromises).then((results) => {
       const textures = Object.fromEntries(results) as Record<MetalType, THREE.Texture>
       setMatcapTextures(textures)
+    })
+
+    // Shadow 텍스처 로딩
+    loader.load(shadowTexturePath, (texture) => {
+      texture.colorSpace = THREE.SRGBColorSpace
+      setShadowTexture(texture)
     })
   }, [])
 
@@ -381,8 +392,25 @@ export function Ring({ onLoadComplete, ...props }) {
   // matcapMaterial alias for backward compatibility
   const matcapMaterial = metalMaterial
 
-  // 모델 중심점 저장
+  // Shadow 재질 생성
+  const shadowMaterial = useMemo(() => {
+    if (!shadowTexture) return null
+
+    return new THREE.MeshBasicMaterial({
+      map: shadowTexture,
+      transparent: true,
+      opacity: 0.6,
+      side: THREE.DoubleSide,
+      depthWrite: false,
+    })
+  }, [shadowTexture])
+
+  // 모델 중심점 및 바운딩 박스 저장
   const [modelCenter, setModelCenter] = useState<THREE.Vector3>(new THREE.Vector3())
+  const [modelBounds, setModelBounds] = useState<{ min: THREE.Vector3; max: THREE.Vector3 }>({
+    min: new THREE.Vector3(),
+    max: new THREE.Vector3(),
+  })
 
   // 모델에서 geometry 추출 (재질 이름으로 분류)
   useEffect(() => {
@@ -390,6 +418,7 @@ export function Ring({ onLoadComplete, ...props }) {
 
     const metals: MeshInfo[] = []
     const gems: MeshInfo[] = []
+    let shadow: MeshInfo | null = null
 
     // 전체 바운딩 박스 계산
     const boundingBox = new THREE.Box3()
@@ -425,12 +454,13 @@ export function Ring({ onLoadComplete, ...props }) {
 
         // 재질 이름 또는 메시 이름으로 분류
         const name = (materialName + meshName).toLowerCase()
-        // "사용자 지정" = 다이아몬드, shadow = 제외, 나머지 = metal
+        // "사용자 지정" = 다이아몬드, shadow = 그림자, 나머지 = metal
         if (name.includes('gem') || name.includes('diamond') || name.includes('stone') || name.includes('사용자 지정')) {
           gems.push(meshInfo)
           console.log('  -> Classified as GEM')
         } else if (name.includes('shadow')) {
-          console.log('  -> Skipped (shadow)')
+          shadow = meshInfo
+          console.log('  -> Classified as SHADOW')
         } else {
           metals.push(meshInfo)
           console.log('  -> Classified as METAL')
@@ -453,9 +483,11 @@ export function Ring({ onLoadComplete, ...props }) {
     console.log(`  Center: ${center.x.toFixed(2)}, ${center.y.toFixed(2)}, ${center.z.toFixed(2)}`)
 
     setModelCenter(center)
-    console.log(`Total: ${metals.length} metal meshes, ${gems.length} gem meshes`)
+    setModelBounds({ min: boundingBox.min.clone(), max: boundingBox.max.clone() })
+    console.log(`Total: ${metals.length} metal meshes, ${gems.length} gem meshes, shadow: ${shadow ? 'yes' : 'no'}`)
     setMetalMeshes(metals)
     setGemMeshes(gems)
+    setShadowMesh(shadow)
     setIsReady(true)
   }, [modelObj])
 
@@ -471,48 +503,67 @@ export function Ring({ onLoadComplete, ...props }) {
   }
 
   return (
-    <group
-      scale={transformControls.scale}
-      position={[0, transformControls.positionY, 0]}
-      rotation={[THREE.MathUtils.degToRad(transformControls.rotationX), 0, 0]}
-      {...props}
-    >
-      {/* 중심 보정용 내부 그룹 */}
-      <group position={[-modelCenter.x, -modelCenter.y, -modelCenter.z]}>
-        {/* Metal 메시들 - Matcap 재질 */}
-        {metalMeshes.map((meshInfo, index) => (
-          <mesh
-            key={`metal-${index}`}
-            geometry={meshInfo.geometry}
-            position={meshInfo.position}
-            rotation={meshInfo.rotation}
-            scale={meshInfo.scale}
-            material={matcapMaterial}
+    <>
+      {/* 바닥 그림자 - 회전 영향 없이 바닥에 고정 */}
+      {/* 모델이 -90도 X축 회전되므로, 원래 Z min이 바닥이 됨 */}
+      {shadowTexture && (
+        <mesh
+          rotation={[-Math.PI / 2, 0, 0]}
+          position={[0, (modelBounds.min.z - modelCenter.z - 1) * transformControls.scale, 0]}
+        >
+          <planeGeometry args={[15, 15]} />
+          <meshBasicMaterial
+            map={shadowTexture}
+            transparent
+            opacity={0.6}
+            depthWrite={false}
           />
-        ))}
+        </mesh>
+      )}
 
-        {/* Gem 메시들 - MeshRefractionMaterial */}
-        {gemMeshes.map((meshInfo, index) => (
-          <mesh
-            key={`gem-${index}`}
-            geometry={meshInfo.geometry}
-            position={meshInfo.position}
-            rotation={meshInfo.rotation}
-            scale={meshInfo.scale}
-          >
-            <MeshRefractionMaterial
-              envMap={envMap}
-              color={gemControls.color}
-              ior={gemControls.ior}
-              bounces={gemControls.bounces}
-              fresnel={gemControls.fresnel}
-              aberrationStrength={gemControls.aberrationStrength}
-              fastChroma={gemControls.fastChroma}
-              toneMapped={false}
+      <group
+        scale={transformControls.scale}
+        position={[0, transformControls.positionY, 0]}
+        rotation={[THREE.MathUtils.degToRad(transformControls.rotationX), 0, 0]}
+        {...props}
+      >
+        {/* 중심 보정용 내부 그룹 */}
+        <group position={[-modelCenter.x, -modelCenter.y, -modelCenter.z]}>
+          {/* Metal 메시들 - Matcap 재질 */}
+          {metalMeshes.map((meshInfo, index) => (
+            <mesh
+              key={`metal-${index}`}
+              geometry={meshInfo.geometry}
+              position={meshInfo.position}
+              rotation={meshInfo.rotation}
+              scale={meshInfo.scale}
+              material={matcapMaterial}
             />
-          </mesh>
-        ))}
+          ))}
+
+          {/* Gem 메시들 - MeshRefractionMaterial */}
+          {gemMeshes.map((meshInfo, index) => (
+            <mesh
+              key={`gem-${index}`}
+              geometry={meshInfo.geometry}
+              position={meshInfo.position}
+              rotation={meshInfo.rotation}
+              scale={meshInfo.scale}
+            >
+              <MeshRefractionMaterial
+                envMap={envMap}
+                color={gemControls.color}
+                ior={gemControls.ior}
+                bounces={gemControls.bounces}
+                fresnel={gemControls.fresnel}
+                aberrationStrength={gemControls.aberrationStrength}
+                fastChroma={gemControls.fastChroma}
+                toneMapped={false}
+              />
+            </mesh>
+          ))}
+        </group>
       </group>
-    </group>
+    </>
   )
 }
