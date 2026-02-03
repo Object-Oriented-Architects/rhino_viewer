@@ -192,7 +192,7 @@ const View = forwardRef<HTMLDivElement, ViewProps>(({ children, orbit, orbitTarg
             <OrbitControls
               enableDamping
               autoRotate
-              autoRotateSpeed={0.5}
+              autoRotateSpeed={1}
               target={orbitTarget}
               minDistance={10}
               maxDistance={30}

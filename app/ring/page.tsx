@@ -4,7 +4,14 @@ import dynamic from 'next/dynamic'
 import { Suspense, useState, useCallback } from 'react'
 import Image from 'next/image'
 import { Leva } from 'leva'
+import { Canvas } from '@react-three/fiber'
+import { OrbitControls, PerspectiveCamera, Environment, SoftShadows } from '@react-three/drei'
+import { EffectComposer, Bloom, SMAA } from '@react-three/postprocessing'
+import * as THREE from 'three'
 import { ringConfig } from '@/config'
+
+// Ring 컴포넌트 동적 로드
+const Ring = dynamic(() => import('@/components/canvas/Models').then((mod) => mod.Ring), { ssr: false })
 
 // 로딩 스피너 컴포넌트
 const LoadingSpinner = ({ message }: { message: string }) => (
@@ -21,16 +28,16 @@ const LoadingSpinner = ({ message }: { message: string }) => (
   </div>
 )
 
-const View = dynamic(() => import('@/components/canvas/View').then((mod) => mod.View), { ssr: false })
-const Common = dynamic(() => import('@/components/canvas/View').then((mod) => mod.Common), { ssr: false })
-const Effects = dynamic(() => import('@/components/canvas/View').then((mod) => mod.Effects), { ssr: false })
-const Ring = dynamic(() => import('@/components/canvas/Models').then((mod) => mod.Ring), { ssr: false })
-
 const config = ringConfig
+
+const renderImages = [
+  '/model/ring-260203-angle/render/render01.jpg',
+  '/model/ring-260203-angle/render/render02.jpg',
+  '/model/ring-260203-angle/render/render03.jpg',
+]
 
 export default function Page() {
   const [isModelLoading, setIsModelLoading] = useState(true)
-  const [showComparison, setShowComparison] = useState(false)
 
   const handleModelLoadComplete = useCallback(() => {
     setIsModelLoading(false)
@@ -38,32 +45,45 @@ export default function Page() {
 
   return (
     <>
-      <div className='h-screen w-screen relative'>
-        {isModelLoading && <LoadingSpinner message='Loading...' />}
-
-        {/* 토글 버튼 */}
-        <button
-          onClick={() => setShowComparison(!showComparison)}
-          className='fixed top-4 left-4 z-[100] px-4 py-2 bg-black/70 hover:bg-black/90 text-white rounded-lg backdrop-blur-sm transition-colors text-sm font-medium'
-        >
-          {showComparison ? 'IMAGE: ON' : 'IMAGE: OFF'}
-        </button>
-
-        <div className={`flex h-screen w-screen ${showComparison ? 'flex-col md:flex-row' : ''}`}>
-          {/* Three.js 영역 */}
-          <div className={`relative ${showComparison ? 'h-1/2 w-full md:h-full md:w-1/2' : 'h-full w-full'}`}>
-            <Leva collapsed />
-            <View orbit orbitTarget={config.orbitTarget} className='relative h-full'>
+      {/* PC: 2x2 그리드 / 모바일: 세로 스크롤 */}
+      <div className='min-h-screen w-full overflow-y-auto bg-white md:flex md:items-center md:justify-center md:overflow-hidden'>
+        <Leva hidden />
+        <div className='flex flex-col gap-2 p-2 md:grid md:grid-cols-2 md:gap-4 md:p-4 md:w-[min(100vw,100vh)]'>
+          {/* Three.js 영역 - 직접 Canvas 사용 */}
+          <div className='relative w-full aspect-square bg-white'>
+            {isModelLoading && <LoadingSpinner message='Loading...' />}
+            <Canvas
+              gl={{ antialias: true }}
+              dpr={[1, 2]}
+              onCreated={(state) => {
+                state.gl.toneMapping = THREE.AgXToneMapping
+                state.gl.toneMappingExposure = 1.2
+              }}
+              shadows
+            >
+              <color attach='background' args={['#ffffff']} />
+              <SoftShadows />
+              <Environment
+                files={config.hdrPath}
+                environmentIntensity={config.light.environmentIntensity}
+                environmentRotation={[
+                  THREE.MathUtils.degToRad(config.light.envRotX || 0),
+                  THREE.MathUtils.degToRad(config.light.envRotY || 0),
+                  THREE.MathUtils.degToRad(config.light.envRotZ || 0),
+                ]}
+              />
+              <ambientLight intensity={config.light.ambientLightIntensity || 0} />
+              <directionalLight position={[50, 50, 50]} intensity={config.light.directionalLightIntensity || 0.3} />
+              <PerspectiveCamera makeDefault fov={config.view.fov} position={config.cameraPosition} />
+              <OrbitControls
+                enableDamping
+                autoRotate
+                autoRotateSpeed={1}
+                target={config.orbitTarget}
+                minDistance={5}
+                maxDistance={10}
+              />
               <Suspense fallback={null}>
-                <Common
-                  color='#ffffff'
-                  hdrPath={config.hdrPath}
-                  cameraPosition={config.cameraPosition}
-                  envDefaults={{
-                    fov: config.view.fov,
-                    ...config.light,
-                  }}
-                />
                 <Ring
                   modelPath={config.modelPath}
                   shadowTexturePath={config.shadowTexturePath}
@@ -73,23 +93,27 @@ export default function Page() {
                   transformDefaults={config.transform}
                   onLoadComplete={handleModelLoadComplete}
                 />
-                <Effects bloomDefaults={config.bloom} />
               </Suspense>
-            </View>
+              <EffectComposer multisampling={0} enableNormalPass={false}>
+                <SMAA />
+                <Bloom
+                  intensity={config.bloom.enabled ? config.bloom.intensity : 0}
+                  luminanceThreshold={config.bloom.luminanceThreshold}
+                  luminanceSmoothing={config.bloom.luminanceSmoothing}
+                  radius={config.bloom.radius}
+                  levels={9}
+                  mipmapBlur
+                />
+              </EffectComposer>
+            </Canvas>
           </div>
 
-          {/* 렌더링 이미지 영역 */}
-          {showComparison && (
-            <div className='relative h-1/2 w-full md:h-full md:w-1/2 bg-white'>
-              <Image
-                src='/model/ring-260203-angle/render.webp'
-                alt='Render comparison'
-                fill
-                className='object-contain'
-                priority
-              />
+          {/* 렌더링 이미지들 */}
+          {renderImages.map((src, index) => (
+            <div key={index} className='relative w-full aspect-square bg-white'>
+              <Image src={src} alt={`Render ${index + 1}`} fill className='object-contain' priority={index === 0} />
             </div>
-          )}
+          ))}
         </div>
       </div>
     </>
