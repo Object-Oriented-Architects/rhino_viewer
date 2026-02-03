@@ -45,7 +45,7 @@ export const ringConfig: SceneConfig = {
   },
 
   diamond: {
-    color: '#ffffff',
+    color: '#CECECE',
     ior: 2.4,
     bounces: 5,
     fresnel: 1.0,
