@@ -10,11 +10,10 @@ export default function Scene({ ...props }) {
   return (
     <Canvas
       {...props}
-      dpr={[1, 1]}
+      dpr={[1, 2]}
       onCreated={(state) => {
-        state.gl.toneMapping = THREE.ACESFilmicToneMapping
-        // state.gl.toneMapping = THREE.AgXToneMapping
-        state.gl.toneMappingExposure = 1.0
+        state.gl.toneMapping = THREE.AgXToneMapping
+        state.gl.toneMappingExposure = 1.2
       }}
       shadows={true}
     >
