@@ -306,50 +306,48 @@ export function Ring({ onLoadComplete, ...props }) {
     loader.setLibraryPath('https://cdn.jsdelivr.net/npm/rhino3dm@8.17.0/')
   })
 
-  // Matcap 텍스처 상태
-  const [matcapTextures, setMatcapTextures] = useState<Record<MetalType, THREE.Texture | null>>({
-    white: null,
-    yellow: null,
-    rose: null,
-  })
-
-  // Shadow 텍스처 상태
-  const [shadowTexture, setShadowTexture] = useState<THREE.Texture | null>(null)
-
-  // 추출된 메시 정보 (geometry만)
-  const [metalMeshes, setMetalMeshes] = useState<MeshInfo[]>([])
-  const [gemMeshes, setGemMeshes] = useState<MeshInfo[]>([])
-  const [shadowMesh, setShadowMesh] = useState<MeshInfo | null>(null)
-  const [isReady, setIsReady] = useState(false)
-
-  // Matcap 텍스처 로딩
-  useEffect(() => {
+  // 텍스처들을 useMemo로 로드 (Breezm 패턴 - 깜빡임 방지)
+  const textures = useMemo(() => {
     const loader = new THREE.TextureLoader()
-    const loadPromises = Object.entries(matcapPaths).map(
-      ([key, path]) =>
-        new Promise<[MetalType, THREE.Texture]>((resolve) => {
-          loader.load(path, (texture) => {
-            texture.colorSpace = THREE.SRGBColorSpace
-            resolve([key as MetalType, texture])
-          })
-        }),
-    )
 
-    Promise.all(loadPromises).then((results) => {
-      const textures = Object.fromEntries(results) as Record<MetalType, THREE.Texture>
-      setMatcapTextures(textures)
-    })
+    // Matcap 텍스처 로드
+    const matcapWhite = loader.load(matcapPaths.white)
+    matcapWhite.colorSpace = THREE.SRGBColorSpace
 
-    // Shadow 텍스처 로딩
-    loader.load(shadowTexturePath, (texture) => {
-      texture.colorSpace = THREE.SRGBColorSpace
-      setShadowTexture(texture)
-    })
+    const matcapYellow = loader.load(matcapPaths.yellow)
+    matcapYellow.colorSpace = THREE.SRGBColorSpace
+
+    const matcapRose = loader.load(matcapPaths.rose)
+    matcapRose.colorSpace = THREE.SRGBColorSpace
+
+    // Shadow 텍스처 로드
+    const shadow = loader.load(shadowTexturePath)
+    shadow.colorSpace = THREE.SRGBColorSpace
+
+    // Shadow Alpha 텍스처 (glasses에서 가져옴)
+    const shadowAlpha = loader.load('/model/glasses/Breezm_Pbr_shadow_embedded_files/gradient_02.jpg')
+
+    return {
+      matcap: {
+        white: matcapWhite,
+        yellow: matcapYellow,
+        rose: matcapRose,
+      },
+      shadow,
+      shadowAlpha,
+    }
   }, [])
 
   // Metal 컨트롤
   const metalControls = useControls('Metal', {
+    mode: { value: 'pbr', options: ['matcap', 'pbr'] },
     type: { value: 'white' as MetalType, options: ['white', 'yellow', 'rose'] },
+    color: { value: '#ffffff' },
+    brightness: { value: 1.0, min: 0.5, max: 10.0, step: 0.01 },
+    metalness: { value: 1.0, min: 0, max: 1, step: 0.01 },
+    roughness: { value: 0, min: 0, max: 1, step: 0.01 },
+    envMapIntensity: { value: 1.5, min: 0, max: 5, step: 0.01 },
+    flatShading: { value: false },
   })
 
   // Gem 컨트롤 - Blue Nile 스타일 파라미터
@@ -369,61 +367,39 @@ export function Ring({ onLoadComplete, ...props }) {
     rotationX: { value: -90, min: -180, max: 180, step: 1 },
   })
 
-  // Metal 재질 생성 (MeshMatcapMaterial - 환경 독립적)
+  // Metal 재질 생성
   const metalMaterial = useMemo(() => {
-    const selectedTexture = matcapTextures[metalControls.type]
-    if (!selectedTexture) {
-      // 텍스처 로딩 전에는 기본 재질 반환
+    const color = new THREE.Color(metalControls.color)
+    color.multiplyScalar(metalControls.brightness)
+
+    if (metalControls.mode === 'pbr') {
+      // PBR 재질 (MeshStandardMaterial)
       return new THREE.MeshStandardMaterial({
-        color: '#c0c0c0',
-        metalness: 0.9,
-        roughness: 0.2,
+        color: color,
+        metalness: metalControls.metalness,
+        roughness: metalControls.roughness,
         envMap: envMap,
-        envMapIntensity: 1.5,
+        envMapIntensity: metalControls.envMapIntensity,
+        flatShading: metalControls.flatShading,
+      })
+    } else {
+      // Matcap 재질
+      return new THREE.MeshMatcapMaterial({
+        matcap: textures.matcap[metalControls.type],
+        color: color,
+        flatShading: metalControls.flatShading,
       })
     }
+  }, [metalControls, textures, envMap])
 
-    return new THREE.MeshMatcapMaterial({
-      matcap: selectedTexture,
-      color: '#ffffff',
-    })
-  }, [metalControls.type, matcapTextures, envMap])
-
-  // matcapMaterial alias for backward compatibility
-  const matcapMaterial = metalMaterial
-
-  // Shadow 재질 생성
-  const shadowMaterial = useMemo(() => {
-    if (!shadowTexture) return null
-
-    return new THREE.MeshBasicMaterial({
-      map: shadowTexture,
-      transparent: true,
-      opacity: 0.6,
-      side: THREE.DoubleSide,
-      depthWrite: false,
-    })
-  }, [shadowTexture])
-
-  // 모델 중심점 및 바운딩 박스 저장
-  const [modelCenter, setModelCenter] = useState<THREE.Vector3>(new THREE.Vector3())
-  const [modelBounds, setModelBounds] = useState<{ min: THREE.Vector3; max: THREE.Vector3 }>({
-    min: new THREE.Vector3(),
-    max: new THREE.Vector3(),
-  })
-
-  // 모델에서 geometry 추출 (재질 이름으로 분류)
-  useEffect(() => {
-    if (!modelObj) return
+  // 모델에서 geometry 추출 (useMemo로 동기 처리 - 깜빡임 방지)
+  const processedModel = useMemo(() => {
+    if (!modelObj) return null
 
     const metals: MeshInfo[] = []
     const gems: MeshInfo[] = []
-    let shadow: MeshInfo | null = null
-
-    // 전체 바운딩 박스 계산
     const boundingBox = new THREE.Box3()
 
-    console.log('=== 3dm Model Structure ===')
     modelObj.traverse((child) => {
       if (child instanceof THREE.Mesh) {
         const geometry = child.geometry
@@ -437,8 +413,6 @@ export function Ring({ onLoadComplete, ...props }) {
           worldBox.applyMatrix4(child.matrixWorld)
           boundingBox.union(worldBox)
         }
-
-        console.log(`Mesh: ${meshName}, Material: ${materialName}, Vertices: ${geometry.attributes.position?.count}`)
 
         // geometry에 노멀이 없으면 계산
         if (!geometry.attributes.normal) {
@@ -454,16 +428,15 @@ export function Ring({ onLoadComplete, ...props }) {
 
         // 재질 이름 또는 메시 이름으로 분류
         const name = (materialName + meshName).toLowerCase()
-        // "사용자 지정" = 다이아몬드, shadow = 그림자, 나머지 = metal
-        if (name.includes('gem') || name.includes('diamond') || name.includes('stone') || name.includes('사용자 지정')) {
+        if (
+          name.includes('gem') ||
+          name.includes('diamond') ||
+          name.includes('stone') ||
+          name.includes('사용자 지정')
+        ) {
           gems.push(meshInfo)
-          console.log('  -> Classified as GEM')
-        } else if (name.includes('shadow')) {
-          shadow = meshInfo
-          console.log('  -> Classified as SHADOW')
-        } else {
+        } else if (!name.includes('shadow')) {
           metals.push(meshInfo)
-          console.log('  -> Classified as METAL')
         }
 
         // 원본 메시 숨기기
@@ -471,55 +444,46 @@ export function Ring({ onLoadComplete, ...props }) {
       }
     })
 
-    // 바운딩 박스 정보 출력
-    const size = new THREE.Vector3()
     const center = new THREE.Vector3()
-    boundingBox.getSize(size)
     boundingBox.getCenter(center)
-    console.log(`=== Bounding Box ===`)
-    console.log(`  Min: ${boundingBox.min.x.toFixed(2)}, ${boundingBox.min.y.toFixed(2)}, ${boundingBox.min.z.toFixed(2)}`)
-    console.log(`  Max: ${boundingBox.max.x.toFixed(2)}, ${boundingBox.max.y.toFixed(2)}, ${boundingBox.max.z.toFixed(2)}`)
-    console.log(`  Size: ${size.x.toFixed(2)} x ${size.y.toFixed(2)} x ${size.z.toFixed(2)}`)
-    console.log(`  Center: ${center.x.toFixed(2)}, ${center.y.toFixed(2)}, ${center.z.toFixed(2)}`)
 
-    setModelCenter(center)
-    setModelBounds({ min: boundingBox.min.clone(), max: boundingBox.max.clone() })
-    console.log(`Total: ${metals.length} metal meshes, ${gems.length} gem meshes, shadow: ${shadow ? 'yes' : 'no'}`)
-    setMetalMeshes(metals)
-    setGemMeshes(gems)
-    setShadowMesh(shadow)
-    setIsReady(true)
+    return {
+      metalMeshes: metals,
+      gemMeshes: gems,
+      modelCenter: center,
+      modelBounds: { min: boundingBox.min.clone(), max: boundingBox.max.clone() },
+    }
   }, [modelObj])
 
   // 로딩 완료 콜백
   useEffect(() => {
-    if (isReady && matcapMaterial && onLoadComplete) {
+    if (processedModel && onLoadComplete) {
       onLoadComplete()
     }
-  }, [isReady, matcapMaterial, onLoadComplete])
+  }, [processedModel, onLoadComplete])
 
-  if (!matcapMaterial || !isReady) {
+  if (!processedModel) {
     return null
   }
 
+  const { metalMeshes, gemMeshes, modelCenter, modelBounds } = processedModel
+
   return (
     <>
-      {/* 바닥 그림자 - 회전 영향 없이 바닥에 고정 */}
-      {/* 모델이 -90도 X축 회전되므로, 원래 Z min이 바닥이 됨 */}
-      {shadowTexture && (
-        <mesh
-          rotation={[-Math.PI / 2, 0, 0]}
-          position={[0, (modelBounds.min.z - modelCenter.z - 1) * transformControls.scale, 0]}
-        >
-          <planeGeometry args={[15, 15]} />
-          <meshBasicMaterial
-            map={shadowTexture}
-            transparent
-            opacity={0.6}
-            depthWrite={false}
-          />
-        </mesh>
-      )}
+      {/* 바닥 그림자 - glasses 방식 (map + alphaMap) */}
+      <mesh
+        rotation={[-Math.PI / 2, 0, 0]}
+        position={[0, (modelBounds.min.z - modelCenter.z) * transformControls.scale - 0.01, 0]}
+      >
+        <planeGeometry args={[5, 5]} />
+        <meshBasicMaterial
+          map={textures.shadow}
+          alphaMap={textures.shadowAlpha}
+          toneMapped={false}
+          transparent
+          depthWrite={false}
+        />
+      </mesh>
 
       <group
         scale={transformControls.scale}
@@ -537,7 +501,7 @@ export function Ring({ onLoadComplete, ...props }) {
               position={meshInfo.position}
               rotation={meshInfo.rotation}
               scale={meshInfo.scale}
-              material={matcapMaterial}
+              material={metalMaterial}
             />
           ))}
 

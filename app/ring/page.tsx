@@ -22,18 +22,16 @@ const LoadingSpinner = ({ message }: { message: string }) => (
 const View = dynamic(() => import('@/components/canvas/View').then((mod) => mod.View), { ssr: false })
 const Common = dynamic(() => import('@/components/canvas/View').then((mod) => mod.Common), { ssr: false })
 const Effects = dynamic(() => import('@/components/canvas/View').then((mod) => mod.Effects), { ssr: false })
-
-// Ring 컴포넌트를 동적으로 로드
-const RingWithCallback = ({ onLoadComplete }: { onLoadComplete: () => void }) => {
-  const Ring = dynamic(() => import('@/components/canvas/Models').then((mod) => mod.Ring), { ssr: false })
-  return <Ring onLoadComplete={onLoadComplete} />
-}
+const Ring = dynamic(() => import('@/components/canvas/Models').then((mod) => mod.Ring), { ssr: false })
 
 export default function Page() {
   const [isModelLoading, setIsModelLoading] = useState(true)
+  const [showEffects, setShowEffects] = useState(false)
 
   const handleModelLoadComplete = useCallback(() => {
     setIsModelLoading(false)
+    // Effects를 약간 지연시켜서 깜빡임 방지
+    setTimeout(() => setShowEffects(true), 100)
   }, [])
 
   return (
@@ -47,26 +45,29 @@ export default function Page() {
           <View orbit orbitTarget={[0, 0, 0]} className='relative h-full'>
             <Suspense fallback={null}>
               <Common
+                color='#ffffff'
                 hdrPath='/model/ring-260203/ring800.hdr'
-                cameraPosition={[3, 2, 3]}
+                cameraPosition={[8, 5, 8]}
                 envDefaults={{
                   fov: 45,
-                  environmentIntensity: 0.8,
+                  environmentIntensity: 1.0,
                   envRotY: 0,
-                  ambientLightIntensity: 0.3,
-                  directionalLightIntensity: 0.5,
+                  ambientLightIntensity: 0.5,
+                  directionalLightIntensity: 0.8,
                 }}
               />
-              <RingWithCallback onLoadComplete={handleModelLoadComplete} />
-              <Effects
-                bloomDefaults={{
-                  enabled: true,
-                  intensity: 1.5,
-                  luminanceThreshold: 0.9,
-                  luminanceSmoothing: 0.4,
-                  radius: 0.8,
-                }}
-              />
+              <Ring onLoadComplete={handleModelLoadComplete} />
+              {/* {showEffects && (
+                <Effects
+                  bloomDefaults={{
+                    enabled: true,
+                    intensity: 1.5,
+                    luminanceThreshold: 0.9,
+                    luminanceSmoothing: 0.4,
+                    radius: 0.8,
+                  }}
+                />
+              )} */}
             </Suspense>
           </View>
         </div>
