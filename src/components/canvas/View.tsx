@@ -156,7 +156,7 @@ const View = forwardRef<HTMLDivElement, ViewProps>(({ children, orbit, orbitTarg
       <Three>
         <ViewImpl track={localRef}>
           {children}
-          {orbit && <OrbitControls enableDamping={false} target={orbitTarget} />}
+          {orbit && <OrbitControls enableDamping autoRotate autoRotateSpeed={2} target={orbitTarget} />}
         </ViewImpl>
       </Three>
     </>

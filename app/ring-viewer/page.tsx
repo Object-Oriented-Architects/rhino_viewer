@@ -23,10 +23,12 @@ const View = dynamic(() => import('@/components/canvas/View').then((mod) => mod.
 const Common = dynamic(() => import('@/components/canvas/View').then((mod) => mod.Common), { ssr: false })
 const Effects = dynamic(() => import('@/components/canvas/View').then((mod) => mod.Effects), { ssr: false })
 
-// Ring 컴포넌트를 동적으로 로드
-const RingWithCallback = ({ onLoadComplete }: { onLoadComplete: () => void }) => {
-  const Ring = dynamic(() => import('@/components/canvas/Models').then((mod) => mod.Ring), { ssr: false })
-  return <Ring onLoadComplete={onLoadComplete} />
+// JewelryViewer 컴포넌트를 동적으로 로드
+const JewelryViewerWithCallback = ({ onLoadComplete }: { onLoadComplete: () => void }) => {
+  const JewelryViewer = dynamic(() => import('@/components/canvas/JewelryViewer').then((mod) => mod.JewelryViewer), {
+    ssr: false,
+  })
+  return <JewelryViewer onLoadComplete={onLoadComplete} />
 }
 
 export default function Page() {
@@ -40,14 +42,14 @@ export default function Page() {
     <>
       <div className='h-screen w-screen relative'>
         {/* 3D 모델 로딩 중일 때만 스피너 표시 */}
-        {isModelLoading && <LoadingSpinner message='Loading...' />}
+        {isModelLoading && <LoadingSpinner message='Loading Blue Nile Ring...' />}
 
         <div className='absolute h-screen w-screen'>
           <Leva collapsed />
           <View orbit orbitTarget={[0, 0, 0]} className='relative h-full'>
             <Suspense fallback={null}>
               <Common
-                hdrPath='/model/ring-260203/ring800.hdr'
+                hdrPath='/model/ring/env.hdr'
                 cameraPosition={[3, 2, 3]}
                 envDefaults={{
                   fov: 45,
@@ -57,7 +59,7 @@ export default function Page() {
                   directionalLightIntensity: 0.5,
                 }}
               />
-              <RingWithCallback onLoadComplete={handleModelLoadComplete} />
+              <JewelryViewerWithCallback onLoadComplete={handleModelLoadComplete} />
               <Effects
                 bloomDefaults={{
                   enabled: true,

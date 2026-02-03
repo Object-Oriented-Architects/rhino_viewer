@@ -273,162 +273,246 @@ export function Breezm({ onLoadComplete, ...props }) {
   )
 }
 
-// Ring Metal 재질 설정
-const ringMetalControls = {
-  color: { value: '#ffffff' },
-  metalness: { value: 1.0, min: 0, max: 1, step: 0.01 },
-  roughness: { value: 0.05, min: 0, max: 1, step: 0.01 },
-  envMapIntensity: { value: 4, min: 0, max: 10, step: 0.1 },
-  specularColor: { value: '#ffffff' },
-  specularIntensity: { value: 1, min: 0, max: 1, step: 0.01 },
+// Metal 타입 정의
+type MetalType = 'white' | 'yellow' | 'rose'
+
+// Matcap 텍스처 경로
+const matcapPaths: Record<MetalType, string> = {
+  white: '/model/bluenile/matcap/white.png',
+  yellow: '/model/bluenile/matcap/yellow.png',
+  rose: '/model/bluenile/matcap/rose.png',
 }
 
-// 환경맵 옵션
-const envMapOptions = {
-  ring: '/model/ring/env.hdr',
-  glasses: '/model/glasses/breezm.hdr',
-  polyhaven: 'https://dl.polyhaven.org/file/ph-assets/HDRIs/hdr/1k/peppermint_powerplant_2_1k.hdr',
+// 메시 정보 타입
+interface MeshInfo {
+  geometry: THREE.BufferGeometry
+  position: THREE.Vector3
+  rotation: THREE.Euler
+  scale: THREE.Vector3
 }
 
 export function Ring({ onLoadComplete, ...props }) {
-  const filepath = '/model/ring/ring.3dm'
+  // 새 모델 경로
+  const modelPath = '/model/ring-260203/Ring_Mesh_0203.3dm'
+  const hdrPath = '/model/ring-260203/ring800.hdr'
 
-  // 모든 환경맵 미리 로드
-  const envMapRing = useLoader(RGBELoader, envMapOptions.ring)
-  const envMapGlasses = useLoader(RGBELoader, envMapOptions.glasses)
-  const envMapPolyhaven = useLoader(RGBELoader, envMapOptions.polyhaven)
+  // 환경맵 로드 (Gem용)
+  const envMap = useLoader(RGBELoader, hdrPath)
+  envMap.mapping = THREE.EquirectangularReflectionMapping
 
-  // 환경맵 매핑 설정
-  envMapRing.mapping = THREE.EquirectangularReflectionMapping
-  envMapGlasses.mapping = THREE.EquirectangularReflectionMapping
-  envMapPolyhaven.mapping = THREE.EquirectangularReflectionMapping
-
-  const envMaps = useMemo(
-    () => ({
-      ring: envMapRing,
-      glasses: envMapGlasses,
-      polyhaven: envMapPolyhaven,
-    }),
-    [envMapRing, envMapGlasses, envMapPolyhaven],
-  )
-
-  const modelObj = useLoader(Rhino3dmLoader, filepath, (loader) => {
+  // 3dm 모델 로드 - geometry만 사용
+  const modelObj = useLoader(Rhino3dmLoader, modelPath, (loader) => {
     loader.setLibraryPath('https://cdn.jsdelivr.net/npm/rhino3dm@8.17.0/')
   })
 
-  // Gem 메시 정보 저장
-  const [gemMeshes, setGemMeshes] = useState<
-    { geometry: THREE.BufferGeometry; position: THREE.Vector3; rotation: THREE.Euler; scale: THREE.Vector3 }[]
-  >([])
+  // Matcap 텍스처 상태
+  const [matcapTextures, setMatcapTextures] = useState<Record<MetalType, THREE.Texture | null>>({
+    white: null,
+    yellow: null,
+    rose: null,
+  })
 
-  // Metal 재질 컨트롤
-  const Metal = useControls('Metal', ringMetalControls)
+  // 추출된 메시 정보 (geometry만)
+  const [metalMeshes, setMetalMeshes] = useState<MeshInfo[]>([])
+  const [gemMeshes, setGemMeshes] = useState<MeshInfo[]>([])
+  const [isReady, setIsReady] = useState(false)
 
-  // Gem (MeshRefractionMaterial) 컨트롤
-  const Gem = useControls('Gem', {
-    // 환경맵 선택
-    envMap: { value: 'polyhaven', options: ['ring', 'glasses', 'polyhaven'] },
+  // Matcap 텍스처 로딩
+  useEffect(() => {
+    const loader = new THREE.TextureLoader()
+    const loadPromises = Object.entries(matcapPaths).map(
+      ([key, path]) =>
+        new Promise<[MetalType, THREE.Texture]>((resolve) => {
+          loader.load(path, (texture) => {
+            texture.colorSpace = THREE.SRGBColorSpace
+            resolve([key as MetalType, texture])
+          })
+        }),
+    )
+
+    Promise.all(loadPromises).then((results) => {
+      const textures = Object.fromEntries(results) as Record<MetalType, THREE.Texture>
+      setMatcapTextures(textures)
+    })
+  }, [])
+
+  // Metal 컨트롤
+  const metalControls = useControls('Metal', {
+    type: { value: 'white' as MetalType, options: ['white', 'yellow', 'rose'] },
+  })
+
+  // Gem 컨트롤 - Blue Nile 스타일 파라미터
+  const gemControls = useControls('Diamond', {
     color: { value: '#ffffff' },
-    // 다이아몬드: 2.4, 루비: 1.76
-    ior: { value: 2.4, min: 1, max: 5, step: 0.01 },
-    // 빛 반사 횟수 (높을수록 사실적, 성능 저하)
-    bounces: { value: 3, min: 0, max: 10, step: 1 },
-    // 프레넬 효과
-    fresnel: { value: 0, min: 0, max: 1, step: 0.01 },
-    // 색수차 (무지개 효과) 강도
-    aberrationStrength: { value: 0.02, min: 0, max: 0.2, step: 0.001 },
-    // 빠른 색수차 (성능 최적화)
+    ior: { value: 2.41, min: 1.5, max: 3, step: 0.01 },
+    bounces: { value: 4, min: 1, max: 10, step: 1 },
+    fresnel: { value: 0.1, min: 0, max: 1, step: 0.01 },
+    aberrationStrength: { value: 0.044, min: 0, max: 0.1, step: 0.001 },
     fastChroma: { value: true },
   })
 
-  // 선택된 환경맵
-  const selectedEnvMap = envMaps[Gem.envMap as keyof typeof envMaps]
+  // Transform 컨트롤 (3dm 모델은 mm 단위일 수 있으므로 스케일 조정 필요)
+  const transformControls = useControls('Transform', {
+    scale: { value: 0.1, min: 0.001, max: 100, step: 0.001 },
+    positionY: { value: 0, min: -10, max: 10, step: 0.1 },
+    rotationX: { value: -90, min: -180, max: 180, step: 1 },
+  })
 
-  // Metal 재질
+  // Metal 재질 생성 (MeshMatcapMaterial - 환경 독립적)
   const metalMaterial = useMemo(() => {
-    const mat = new THREE.MeshPhysicalMaterial({
-      color: new THREE.Color(Metal.color),
-      metalness: Metal.metalness,
-      roughness: Metal.roughness,
-      specularColor: new THREE.Color(Metal.specularColor),
-      specularIntensity: Metal.specularIntensity,
-      envMapIntensity: Metal.envMapIntensity,
+    const selectedTexture = matcapTextures[metalControls.type]
+    if (!selectedTexture) {
+      // 텍스처 로딩 전에는 기본 재질 반환
+      return new THREE.MeshStandardMaterial({
+        color: '#c0c0c0',
+        metalness: 0.9,
+        roughness: 0.2,
+        envMap: envMap,
+        envMapIntensity: 1.5,
+      })
+    }
+
+    return new THREE.MeshMatcapMaterial({
+      matcap: selectedTexture,
+      color: '#ffffff',
     })
-    mat.name = 'Metal'
-    return mat
-  }, [])
+  }, [metalControls.type, matcapTextures, envMap])
 
-  // Metal 재질 업데이트
-  useEffect(() => {
-    metalMaterial.color.set(Metal.color)
-    metalMaterial.metalness = Metal.metalness
-    metalMaterial.roughness = Metal.roughness
-    metalMaterial.envMapIntensity = Metal.envMapIntensity
-    metalMaterial.specularColor.set(Metal.specularColor)
-    metalMaterial.specularIntensity = Metal.specularIntensity
-    metalMaterial.needsUpdate = true
-  }, [Metal, metalMaterial])
+  // matcapMaterial alias for backward compatibility
+  const matcapMaterial = metalMaterial
 
-  // 모델에서 Gem geometry 추출
+  // 모델 중심점 저장
+  const [modelCenter, setModelCenter] = useState<THREE.Vector3>(new THREE.Vector3())
+
+  // 모델에서 geometry 추출 (재질 이름으로 분류)
   useEffect(() => {
     if (!modelObj) return
 
-    const meshes: { geometry: THREE.BufferGeometry; position: THREE.Vector3; rotation: THREE.Euler; scale: THREE.Vector3 }[] =
-      []
+    const metals: MeshInfo[] = []
+    const gems: MeshInfo[] = []
 
+    // 전체 바운딩 박스 계산
+    const boundingBox = new THREE.Box3()
+
+    console.log('=== 3dm Model Structure ===')
     modelObj.traverse((child) => {
       if (child instanceof THREE.Mesh) {
-        const originalMaterial = child.material
+        const geometry = child.geometry
+        const materialName = child.material instanceof THREE.Material ? child.material.name : ''
+        const meshName = child.name || 'unnamed'
 
-        if (originalMaterial instanceof THREE.MeshPhysicalMaterial) {
-          if (originalMaterial.name === 'Gem') {
-            // Gem 메시 정보 저장 (로컬 좌표)
-            meshes.push({
-              geometry: child.geometry,
-              position: child.position.clone(),
-              rotation: child.rotation.clone(),
-              scale: child.scale.clone(),
-            })
-            // 원본 메시 숨기기
-            child.visible = false
-          } else if (originalMaterial.name === 'Metal') {
-            child.material = metalMaterial
-          }
+        // 바운딩 박스 확장
+        geometry.computeBoundingBox()
+        if (geometry.boundingBox) {
+          const worldBox = geometry.boundingBox.clone()
+          worldBox.applyMatrix4(child.matrixWorld)
+          boundingBox.union(worldBox)
         }
+
+        console.log(`Mesh: ${meshName}, Material: ${materialName}, Vertices: ${geometry.attributes.position?.count}`)
+
+        // geometry에 노멀이 없으면 계산
+        if (!geometry.attributes.normal) {
+          geometry.computeVertexNormals()
+        }
+
+        const meshInfo: MeshInfo = {
+          geometry: geometry.clone(),
+          position: child.position.clone(),
+          rotation: child.rotation.clone(),
+          scale: child.scale.clone(),
+        }
+
+        // 재질 이름 또는 메시 이름으로 분류
+        const name = (materialName + meshName).toLowerCase()
+        // "사용자 지정" = 다이아몬드, shadow = 제외, 나머지 = metal
+        if (name.includes('gem') || name.includes('diamond') || name.includes('stone') || name.includes('사용자 지정')) {
+          gems.push(meshInfo)
+          console.log('  -> Classified as GEM')
+        } else if (name.includes('shadow')) {
+          console.log('  -> Skipped (shadow)')
+        } else {
+          metals.push(meshInfo)
+          console.log('  -> Classified as METAL')
+        }
+
+        // 원본 메시 숨기기
+        child.visible = false
       }
     })
 
-    setGemMeshes(meshes)
+    // 바운딩 박스 정보 출력
+    const size = new THREE.Vector3()
+    const center = new THREE.Vector3()
+    boundingBox.getSize(size)
+    boundingBox.getCenter(center)
+    console.log(`=== Bounding Box ===`)
+    console.log(`  Min: ${boundingBox.min.x.toFixed(2)}, ${boundingBox.min.y.toFixed(2)}, ${boundingBox.min.z.toFixed(2)}`)
+    console.log(`  Max: ${boundingBox.max.x.toFixed(2)}, ${boundingBox.max.y.toFixed(2)}, ${boundingBox.max.z.toFixed(2)}`)
+    console.log(`  Size: ${size.x.toFixed(2)} x ${size.y.toFixed(2)} x ${size.z.toFixed(2)}`)
+    console.log(`  Center: ${center.x.toFixed(2)}, ${center.y.toFixed(2)}, ${center.z.toFixed(2)}`)
 
-    if (onLoadComplete) {
+    setModelCenter(center)
+    console.log(`Total: ${metals.length} metal meshes, ${gems.length} gem meshes`)
+    setMetalMeshes(metals)
+    setGemMeshes(gems)
+    setIsReady(true)
+  }, [modelObj])
+
+  // 로딩 완료 콜백
+  useEffect(() => {
+    if (isReady && matcapMaterial && onLoadComplete) {
       onLoadComplete()
     }
-  }, [modelObj, onLoadComplete, metalMaterial])
+  }, [isReady, matcapMaterial, onLoadComplete])
+
+  if (!matcapMaterial || !isReady) {
+    return null
+  }
 
   return (
-    <group rotation={[-Math.PI / 2, 0, 0]} {...props}>
-      <primitive object={modelObj} />
-      {/* MeshRefractionMaterial로 Gem 렌더링 */}
-      {gemMeshes.map((meshInfo, index) => (
-        <mesh
-          key={index}
-          geometry={meshInfo.geometry}
-          position={meshInfo.position}
-          rotation={meshInfo.rotation}
-          scale={meshInfo.scale}
-        >
-          <MeshRefractionMaterial
-            envMap={selectedEnvMap}
-            color={Gem.color}
-            ior={Gem.ior}
-            bounces={Gem.bounces}
-            fresnel={Gem.fresnel}
-            aberrationStrength={Gem.aberrationStrength}
-            fastChroma={Gem.fastChroma}
-            toneMapped={false}
+    <group
+      scale={transformControls.scale}
+      position={[0, transformControls.positionY, 0]}
+      rotation={[THREE.MathUtils.degToRad(transformControls.rotationX), 0, 0]}
+      {...props}
+    >
+      {/* 중심 보정용 내부 그룹 */}
+      <group position={[-modelCenter.x, -modelCenter.y, -modelCenter.z]}>
+        {/* Metal 메시들 - Matcap 재질 */}
+        {metalMeshes.map((meshInfo, index) => (
+          <mesh
+            key={`metal-${index}`}
+            geometry={meshInfo.geometry}
+            position={meshInfo.position}
+            rotation={meshInfo.rotation}
+            scale={meshInfo.scale}
+            material={matcapMaterial}
           />
-        </mesh>
-      ))}
+        ))}
+
+        {/* Gem 메시들 - MeshRefractionMaterial */}
+        {gemMeshes.map((meshInfo, index) => (
+          <mesh
+            key={`gem-${index}`}
+            geometry={meshInfo.geometry}
+            position={meshInfo.position}
+            rotation={meshInfo.rotation}
+            scale={meshInfo.scale}
+          >
+            <MeshRefractionMaterial
+              envMap={envMap}
+              color={gemControls.color}
+              ior={gemControls.ior}
+              bounces={gemControls.bounces}
+              fresnel={gemControls.fresnel}
+              aberrationStrength={gemControls.aberrationStrength}
+              fastChroma={gemControls.fastChroma}
+              toneMapped={false}
+            />
+          </mesh>
+        ))}
+      </group>
     </group>
   )
 }
