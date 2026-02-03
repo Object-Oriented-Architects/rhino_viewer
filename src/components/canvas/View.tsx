@@ -1,7 +1,25 @@
 'use client'
 
-import { forwardRef, Suspense, useEffect, useImperativeHandle, useMemo, useRef, createContext, useContext, useState, useCallback } from 'react'
-import { SoftShadows, OrbitControls, PerspectiveCamera, View as ViewImpl, Environment, ContactShadows } from '@react-three/drei'
+import {
+  forwardRef,
+  Suspense,
+  useEffect,
+  useImperativeHandle,
+  useMemo,
+  useRef,
+  createContext,
+  useContext,
+  useState,
+  useCallback,
+} from 'react'
+import {
+  SoftShadows,
+  OrbitControls,
+  PerspectiveCamera,
+  View as ViewImpl,
+  Environment,
+  ContactShadows,
+} from '@react-three/drei'
 import { Three } from '@/helpers/components/Three'
 import * as THREE from 'three'
 import { folder, useControls } from 'leva'
@@ -99,7 +117,12 @@ export const Common = ({
   })
   // 환경맵 회전 (값이 바뀔 때마다 새 Euler 생성해야 React가 감지)
   const envRot = useMemo(
-    () => new THREE.Euler(THREE.MathUtils.degToRad(envRotX), THREE.MathUtils.degToRad(envRotY), THREE.MathUtils.degToRad(envRotZ)),
+    () =>
+      new THREE.Euler(
+        THREE.MathUtils.degToRad(envRotX),
+        THREE.MathUtils.degToRad(envRotY),
+        THREE.MathUtils.degToRad(envRotZ),
+      ),
     [envRotX, envRotY, envRotZ],
   )
   return (
@@ -157,7 +180,16 @@ const View = forwardRef<HTMLDivElement, ViewProps>(({ children, orbit, orbitTarg
       <Three>
         <ViewImpl track={localRef}>
           {children}
-          {orbit && <OrbitControls enableDamping autoRotate autoRotateSpeed={2} target={orbitTarget} />}
+          {orbit && (
+            <OrbitControls
+              enableDamping
+              autoRotate
+              autoRotateSpeed={2}
+              target={orbitTarget}
+              minDistance={10}
+              maxDistance={30}
+            />
+          )}
         </ViewImpl>
       </Three>
     </>
@@ -223,14 +255,14 @@ export function BloomProvider({ children, bloomDefaults = {} }: BloomProviderPro
   const lightRef = useRef<THREE.DirectionalLight>(null!)
 
   const registerMesh = useCallback((mesh: THREE.Mesh) => {
-    setMeshes(prev => {
+    setMeshes((prev) => {
       if (prev.includes(mesh)) return prev
       return [...prev, mesh]
     })
   }, [])
 
   const unregisterMesh = useCallback((mesh: THREE.Mesh) => {
-    setMeshes(prev => prev.filter(m => m !== mesh))
+    setMeshes((prev) => prev.filter((m) => m !== mesh))
   }, [])
 
   const {
@@ -247,11 +279,14 @@ export function BloomProvider({ children, bloomDefaults = {} }: BloomProviderPro
     luminanceSmoothing: { value: defaultSmoothing, min: 0, max: 2, step: 0.01 },
   })
 
-  const contextValue = useMemo(() => ({
-    registerMesh,
-    unregisterMesh,
-    lightRef,
-  }), [registerMesh, unregisterMesh])
+  const contextValue = useMemo(
+    () => ({
+      registerMesh,
+      unregisterMesh,
+      lightRef,
+    }),
+    [registerMesh, unregisterMesh],
+  )
 
   return (
     <BloomContext.Provider value={contextValue}>
@@ -305,4 +340,3 @@ export function Effects({ bloomDefaults = {} }: EffectsProps) {
     </EffectComposer>
   )
 }
-
