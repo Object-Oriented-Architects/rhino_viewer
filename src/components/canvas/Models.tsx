@@ -598,10 +598,19 @@ export function Ring({
             />
           ))}
 
-          {/* Gem 메시들 - CubeCamera + MeshRefractionMaterial */}
+          {/* Gem 메시들 - CubeCamera + Caustics + MeshRefractionMaterial */}
           <CubeCamera resolution={256} frames={1} envMap={envMap}>
             {(cubeTexture) => (
-              <>
+              <Caustics
+                causticsOnly={false}
+                backside={true}
+                color={gemControls.color}
+                position={[0, 0, 0]}
+                lightSource={[5, 5, -10]}
+                worldRadius={0.1}
+                ior={1.8}
+                intensity={0.1}
+              >
                 {gemMeshes.map((meshInfo, index) => (
                   <mesh
                     key={`gem-${index}`}
@@ -627,7 +636,7 @@ export function Ring({
                     />
                   </mesh>
                 ))}
-              </>
+              </Caustics>
             )}
           </CubeCamera>
         </group>
