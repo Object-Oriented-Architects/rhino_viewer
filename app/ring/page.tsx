@@ -26,12 +26,9 @@ const Ring = dynamic(() => import('@/components/canvas/Models').then((mod) => mo
 
 export default function Page() {
   const [isModelLoading, setIsModelLoading] = useState(true)
-  const [showEffects, setShowEffects] = useState(false)
 
   const handleModelLoadComplete = useCallback(() => {
     setIsModelLoading(false)
-    // Effects를 약간 지연시켜서 깜빡임 방지
-    setTimeout(() => setShowEffects(true), 100)
   }, [])
 
   return (
@@ -57,17 +54,15 @@ export default function Page() {
                 }}
               />
               <Ring onLoadComplete={handleModelLoadComplete} />
-              {/* {showEffects && (
-                <Effects
-                  bloomDefaults={{
-                    enabled: true,
-                    intensity: 1.5,
-                    luminanceThreshold: 0.9,
-                    luminanceSmoothing: 0.4,
-                    radius: 0.8,
-                  }}
-                />
-              )} */}
+              {/* <Effects
+                bloomDefaults={{
+                  enabled: true,
+                  intensity: 1.5,
+                  luminanceThreshold: 0.9,
+                  luminanceSmoothing: 0.4,
+                  radius: 0.8,
+                }}
+              /> */}
             </Suspense>
           </View>
         </div>

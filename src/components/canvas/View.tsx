@@ -97,10 +97,11 @@ export const Common = ({
     },
     background: false,
   })
-  const envRot = useMemo(() => new THREE.Euler(), [])
-  useEffect(() => {
-    envRot.set(THREE.MathUtils.degToRad(envRotX), THREE.MathUtils.degToRad(envRotY), THREE.MathUtils.degToRad(envRotZ))
-  }, [envRotX, envRotY, envRotZ])
+  // 환경맵 회전 (값이 바뀔 때마다 새 Euler 생성해야 React가 감지)
+  const envRot = useMemo(
+    () => new THREE.Euler(THREE.MathUtils.degToRad(envRotX), THREE.MathUtils.degToRad(envRotY), THREE.MathUtils.degToRad(envRotZ)),
+    [envRotX, envRotY, envRotZ],
+  )
   return (
     <Suspense fallback={null}>
       {color && <color attach='background' args={[color]} />}
@@ -216,16 +217,15 @@ export function Effects({ bloomDefaults = {} }: EffectsProps) {
     radius: { value: defaultRadius, min: 0, max: 1, step: 0.01 },
   })
 
-  if (!enabled) return null
-
+  // EffectComposer를 항상 마운트하고 intensity로 제어 (마운트/언마운트 깜빡임 방지)
   return (
-    <EffectComposer>
+    <EffectComposer multisampling={4}>
       <Bloom
-        intensity={intensity}
+        intensity={enabled ? intensity : 0}
         luminanceThreshold={luminanceThreshold}
         luminanceSmoothing={luminanceSmoothing}
         radius={radius}
-        mipmapBlur
+        mipmapBlur={false}
       />
     </EffectComposer>
   )

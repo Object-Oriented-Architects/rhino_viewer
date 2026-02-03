@@ -9,7 +9,6 @@ import { useMemo, useRef, useState, useEffect } from 'react'
 import { Line, useCursor, MeshDistortMaterial } from '@react-three/drei'
 import { useRouter } from 'next/navigation'
 import { folder, useControls } from 'leva'
-import { RGBELoader } from 'three/examples/jsm/loaders/RGBELoader.js'
 
 type MaterialConfig = {
   color?: string
@@ -284,12 +283,11 @@ interface MeshInfo {
 export function Ring({ onLoadComplete, ...props }) {
   // 새 모델 경로
   const modelPath = '/model/ring-260203/Ring_Mesh_0203.3dm'
-  const hdrPath = '/model/ring-260203/ring800.hdr'
   const shadowTexturePath = '/model/ring-260203/shadow.jpg'
 
-  // 환경맵 로드 (Gem용)
-  const envMap = useLoader(RGBELoader, hdrPath)
-  envMap.mapping = THREE.EquirectangularReflectionMapping
+  // 씬의 환경맵 사용 (Common에서 설정한 HDR - Leva로 제어 가능)
+  const { scene } = useThree()
+  const envMap = scene.environment
 
   // 3dm 모델 로드 - geometry만 사용
   const modelObj = useLoader(Rhino3dmLoader, modelPath, (loader) => {
@@ -340,7 +338,7 @@ export function Ring({ onLoadComplete, ...props }) {
     rotationX: { value: -90, min: -180, max: 180, step: 1 },
   })
 
-  // Metal 재질 생성 (PBR)
+  // Metal 재질 생성 (PBR - 씬 환경맵 자동 사용)
   const metalMaterial = useMemo(() => {
     const color = new THREE.Color(metalControls.color)
     color.multiplyScalar(metalControls.brightness)
@@ -349,11 +347,10 @@ export function Ring({ onLoadComplete, ...props }) {
       color: color,
       metalness: metalControls.metalness,
       roughness: metalControls.roughness,
-      envMap: envMap,
       envMapIntensity: metalControls.envMapIntensity,
       flatShading: metalControls.flatShading,
     })
-  }, [metalControls, envMap])
+  }, [metalControls])
 
   // 모델에서 geometry 추출 (useMemo로 동기 처리 - 깜빡임 방지)
   const processedModel = useMemo(() => {
