@@ -281,10 +281,47 @@ interface MeshInfo {
   scale: THREE.Vector3
 }
 
+interface MetalDefaults {
+  color?: string
+  brightness?: number
+  metalness?: number
+  roughness?: number
+  envMapIntensity?: number
+  flatShading?: boolean
+}
+
+interface DiamondDefaults {
+  color?: string
+  ior?: number
+  bounces?: number
+  fresnel?: number
+  aberrationStrength?: number
+  fastChroma?: boolean
+}
+
+interface TransformDefaults {
+  scale?: number
+  positionY?: number
+  rotationX?: number
+}
+
+interface ProngDefaults {
+  enabled?: boolean
+  color?: string
+  brightness?: number
+  metalness?: number
+  roughness?: number
+  envMapIntensity?: number
+}
+
 interface RingProps {
   onLoadComplete?: () => void
   modelPath?: string
   shadowTexturePath?: string
+  metalDefaults?: MetalDefaults
+  prongDefaults?: ProngDefaults
+  diamondDefaults?: DiamondDefaults
+  transformDefaults?: TransformDefaults
   [key: string]: any
 }
 
@@ -292,6 +329,10 @@ export function Ring({
   onLoadComplete,
   modelPath = '/model/ring-260203/Ring_Mesh_0203.3dm',
   shadowTexturePath = '/model/ring-260203/shadow.jpg',
+  metalDefaults = {},
+  prongDefaults = {},
+  diamondDefaults = {},
+  transformDefaults = {},
   ...props
 }: RingProps) {
 
@@ -324,31 +365,78 @@ export function Ring({
     }
   }, [])
 
-  // Metal 컨트롤 - envMapIntensity를 낮춰서 bloom threshold 이하로 유지
+  // Metal 기본값 추출
+  const {
+    color: metalColor = '#ffffff',
+    brightness: metalBrightness = 1.0,
+    metalness: metalMetalness = 1.0,
+    roughness: metalRoughness = 0.1,
+    envMapIntensity: metalEnvMapIntensity = 0.8,
+    flatShading: metalFlatShading = false,
+  } = metalDefaults
+
+  // Prong 기본값 추출
+  const {
+    enabled: prongEnabled = false,
+    color: prongColor = '#B76E79', // 로즈골드
+    brightness: prongBrightness = 1.0,
+    metalness: prongMetalness = 1.0,
+    roughness: prongRoughness = 0.15,
+    envMapIntensity: prongEnvMapIntensity = 0.8,
+  } = prongDefaults
+
+  // Diamond 기본값 추출
+  const {
+    color: diamondColor = '#ffffff',
+    ior: diamondIor = 2.41,
+    bounces: diamondBounces = 4,
+    fresnel: diamondFresnel = 0.1,
+    aberrationStrength: diamondAberration = 0.044,
+    fastChroma: diamondFastChroma = true,
+  } = diamondDefaults
+
+  // Transform 기본값 추출
+  const {
+    scale: defaultScale = 0.1,
+    positionY: defaultPositionY = 0,
+    rotationX: defaultRotationX = -90,
+  } = transformDefaults
+
+  // Metal 컨트롤
   const metalControls = useControls('Metal', {
-    color: { value: '#ffffff' },
-    brightness: { value: 1.0, min: 0.5, max: 2.0, step: 0.01 },
-    metalness: { value: 1.0, min: 0, max: 1, step: 0.01 },
-    roughness: { value: 0.1, min: 0, max: 1, step: 0.01 }, // 약간의 roughness로 반사 줄임
-    envMapIntensity: { value: 0.8, min: 0, max: 2, step: 0.01 }, // 낮춰서 bloom 제외
-    flatShading: { value: false },
+    color: { value: metalColor },
+    brightness: { value: metalBrightness, min: 0.5, max: 2.0, step: 0.01 },
+    metalness: { value: metalMetalness, min: 0, max: 1, step: 0.01 },
+    roughness: { value: metalRoughness, min: 0, max: 1, step: 0.01 },
+    envMapIntensity: { value: metalEnvMapIntensity, min: 0, max: 2, step: 0.01 },
+    flatShading: { value: metalFlatShading },
   })
 
-  // Gem 컨트롤 - Blue Nile 스타일 파라미터
+  // Prong 컨트롤 (별도 재질)
+  const prongControls = useControls('Prong', {
+    enabled: { value: prongEnabled },
+    color: { value: prongColor },
+    brightness: { value: prongBrightness, min: 0.5, max: 2.0, step: 0.01 },
+    metalness: { value: prongMetalness, min: 0, max: 1, step: 0.01 },
+    roughness: { value: prongRoughness, min: 0, max: 1, step: 0.01 },
+    envMapIntensity: { value: prongEnvMapIntensity, min: 0, max: 2, step: 0.01 },
+  })
+
+  // Diamond 컨트롤
   const gemControls = useControls('Diamond', {
-    color: { value: '#ffffff' },
-    ior: { value: 2.41, min: 1.5, max: 3, step: 0.01 },
-    bounces: { value: 4, min: 1, max: 10, step: 1 },
-    fresnel: { value: 0.1, min: 0, max: 1, step: 0.01 },
-    aberrationStrength: { value: 0.044, min: 0, max: 0.1, step: 0.001 },
-    fastChroma: { value: true },
+    color: { value: diamondColor },
+    ior: { value: diamondIor, min: 1.5, max: 3, step: 0.01 },
+    bounces: { value: diamondBounces, min: 1, max: 10, step: 1 },
+    fresnel: { value: diamondFresnel, min: 0, max: 1, step: 0.01 },
+    aberrationStrength: { value: diamondAberration, min: 0, max: 0.1, step: 0.001 },
+    fastChroma: { value: diamondFastChroma },
   })
 
-  // Transform 컨트롤 (3dm 모델은 mm 단위일 수 있으므로 스케일 조정 필요)
+  // Transform 컨트롤
   const transformControls = useControls('Transform', {
-    scale: { value: 0.1, min: 0.001, max: 100, step: 0.001 },
-    positionY: { value: 0, min: -10, max: 10, step: 0.1 },
-    rotationX: { value: -90, min: -180, max: 180, step: 1 },
+    scale: { value: defaultScale, min: 0.001, max: 100, step: 0.001 },
+    positionY: { value: defaultPositionY, min: -10, max: 10, step: 0.1 },
+    rotationX: { value: defaultRotationX, min: -180, max: 180, step: 1 },
   })
 
   // Metal 재질 생성 (PBR - 씬 환경맵 자동 사용)
@@ -367,11 +455,26 @@ export function Ring({
     })
   }, [metalControls])
 
+  // Prong 재질 생성 (로즈골드)
+  const prongMaterial = useMemo(() => {
+    const color = new THREE.Color(prongControls.color)
+    color.multiplyScalar(prongControls.brightness)
+
+    return new THREE.MeshStandardMaterial({
+      color: color,
+      metalness: prongControls.metalness,
+      roughness: prongControls.roughness,
+      envMapIntensity: prongControls.envMapIntensity,
+      toneMapped: true,
+    })
+  }, [prongControls])
+
   // 모델에서 geometry 추출 (useMemo로 동기 처리 - 깜빡임 방지)
   const processedModel = useMemo(() => {
     if (!modelObj) return null
 
     const metals: MeshInfo[] = []
+    const prongs: MeshInfo[] = []
     const gems: MeshInfo[] = []
     const boundingBox = new THREE.Box3()
 
@@ -410,6 +513,8 @@ export function Ring({
           name.includes('사용자 지정')
         ) {
           gems.push(meshInfo)
+        } else if (name.includes('prong') || name.includes('프롱') || name.includes('claw')) {
+          prongs.push(meshInfo)
         } else if (!name.includes('shadow')) {
           metals.push(meshInfo)
         }
@@ -424,6 +529,7 @@ export function Ring({
 
     return {
       metalMeshes: metals,
+      prongMeshes: prongs,
       gemMeshes: gems,
       modelCenter: center,
       modelBounds: { min: boundingBox.min.clone(), max: boundingBox.max.clone() },
@@ -441,7 +547,7 @@ export function Ring({
     return null
   }
 
-  const { metalMeshes, gemMeshes, modelCenter, modelBounds } = processedModel
+  const { metalMeshes, prongMeshes, gemMeshes, modelCenter, modelBounds } = processedModel
 
   return (
     <>
@@ -468,7 +574,7 @@ export function Ring({
       >
         {/* 중심 보정용 내부 그룹 */}
         <group position={[-modelCenter.x, -modelCenter.y, -modelCenter.z]}>
-          {/* Metal 메시들 - Matcap 재질 */}
+          {/* Metal 메시들 */}
           {metalMeshes.map((meshInfo, index) => (
             <mesh
               key={`metal-${index}`}
@@ -480,7 +586,19 @@ export function Ring({
             />
           ))}
 
-          {/* Gem 메시들 - MeshRefractionMaterial + SelectiveBloom */}
+          {/* Prong 메시들 - 별도 재질 사용 시 로즈골드, 아니면 Metal 재질 */}
+          {prongMeshes.map((meshInfo, index) => (
+            <mesh
+              key={`prong-${index}`}
+              geometry={meshInfo.geometry}
+              position={meshInfo.position}
+              rotation={meshInfo.rotation}
+              scale={meshInfo.scale}
+              material={prongControls.enabled ? prongMaterial : metalMaterial}
+            />
+          ))}
+
+          {/* Gem 메시들 - MeshRefractionMaterial */}
           {gemMeshes.map((meshInfo, index) => (
             <mesh
               key={`gem-${index}`}

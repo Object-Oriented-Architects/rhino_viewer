@@ -3,6 +3,7 @@
 import dynamic from 'next/dynamic'
 import { Suspense, useState, useCallback } from 'react'
 import { Leva } from 'leva'
+import { ringConfig } from '@/config'
 
 // 로딩 스피너 컴포넌트
 const LoadingSpinner = ({ message }: { message: string }) => (
@@ -24,6 +25,8 @@ const Common = dynamic(() => import('@/components/canvas/View').then((mod) => mo
 const Effects = dynamic(() => import('@/components/canvas/View').then((mod) => mod.Effects), { ssr: false })
 const Ring = dynamic(() => import('@/components/canvas/Models').then((mod) => mod.Ring), { ssr: false })
 
+const config = ringConfig
+
 export default function Page() {
   const [isModelLoading, setIsModelLoading] = useState(true)
 
@@ -34,35 +37,31 @@ export default function Page() {
   return (
     <>
       <div className='h-screen w-screen relative'>
-        {/* 3D 모델 로딩 중일 때만 스피너 표시 */}
         {isModelLoading && <LoadingSpinner message='Loading...' />}
 
         <div className='absolute h-screen w-screen'>
           <Leva collapsed />
-          <View orbit orbitTarget={[0, 0, 0]} className='relative h-full'>
+          <View orbit orbitTarget={config.orbitTarget} className='relative h-full'>
             <Suspense fallback={null}>
               <Common
                 color='#ffffff'
-                hdrPath='/model/ring-260203/ring800.hdr'
-                cameraPosition={[6, 8, 6]}
+                hdrPath={config.hdrPath}
+                cameraPosition={config.cameraPosition}
                 envDefaults={{
-                  fov: 45,
-                  environmentIntensity: 1.0,
-                  envRotY: 0,
-                  ambientLightIntensity: 0.5,
-                  directionalLightIntensity: 0.8,
+                  fov: config.view.fov,
+                  ...config.light,
                 }}
               />
-              <Ring onLoadComplete={handleModelLoadComplete} />
-              <Effects
-                bloomDefaults={{
-                  enabled: true,
-                  intensity: 0.2,
-                  luminanceThreshold: 1.2,
-                  luminanceSmoothing: 0.9,
-                  radius: 0.3,
-                }}
+              <Ring
+                modelPath={config.modelPath}
+                shadowTexturePath={config.shadowTexturePath}
+                metalDefaults={config.metal}
+                prongDefaults={config.prong}
+                diamondDefaults={config.diamond}
+                transformDefaults={config.transform}
+                onLoadComplete={handleModelLoadComplete}
               />
+              <Effects bloomDefaults={config.bloom} />
             </Suspense>
           </View>
         </div>

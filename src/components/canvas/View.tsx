@@ -28,10 +28,14 @@ import { EffectComposer, Bloom, SelectiveBloom } from '@react-three/postprocessi
 
 interface EnvDefaults {
   fov?: number
+  envMap?: 'hdr' | 'threejs studio'
   environmentIntensity?: number
+  envRotX?: number
   envRotY?: number
+  envRotZ?: number
   ambientLightIntensity?: number
   directionalLightIntensity?: number
+  background?: boolean
 }
 
 interface CommonProps {
@@ -49,10 +53,14 @@ export const Common = ({
 }: CommonProps) => {
   const {
     fov: defaultFov = 30,
-    environmentIntensity: defaultEnvIntensity = 0.5,
-    envRotY: defaultEnvRotY = 340,
-    ambientLightIntensity: defaultAmbient = 0.5,
-    directionalLightIntensity: defaultDirectional = 0.2,
+    envMap: defaultEnvMap = 'hdr',
+    environmentIntensity: defaultEnvIntensity = 0.4,
+    envRotX: defaultEnvRotX = 0,
+    envRotY: defaultEnvRotY = 0,
+    envRotZ: defaultEnvRotZ = 0,
+    ambientLightIntensity: defaultAmbient = 0,
+    directionalLightIntensity: defaultDirectional = 0.3,
+    background: defaultBackground = false,
   } = envDefaults
 
   const { fov } = useControls('View', {
@@ -74,17 +82,17 @@ export const Common = ({
     background,
   } = useControls('Light', {
     envMap: {
-      value: 'hdr',
+      value: defaultEnvMap,
       options: ['threejs studio', 'hdr'],
     },
     environmentIntensity: {
       value: defaultEnvIntensity,
       min: 0,
-      max: 1,
+      max: 2,
       step: 0.01,
     },
     envRotX: {
-      value: 0,
+      value: defaultEnvRotX,
       min: 0,
       max: 360,
       step: 0.01,
@@ -96,7 +104,7 @@ export const Common = ({
       step: 0.01,
     },
     envRotZ: {
-      value: 0,
+      value: defaultEnvRotZ,
       min: 0,
       max: 360,
       step: 0.01,
@@ -113,7 +121,7 @@ export const Common = ({
       max: 10,
       step: 0.01,
     },
-    background: false,
+    background: { value: defaultBackground },
   })
   // 환경맵 회전 (값이 바뀔 때마다 새 Euler 생성해야 React가 감지)
   const envRot = useMemo(
