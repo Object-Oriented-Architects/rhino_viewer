@@ -44,7 +44,7 @@ export default function Page() {
               <Common
                 color='#ffffff'
                 hdrPath='/model/ring-260203/ring800.hdr'
-                cameraPosition={[8, 5, 8]}
+                cameraPosition={[6, 8, 6]}
                 envDefaults={{
                   fov: 45,
                   environmentIntensity: 1.0,
@@ -57,7 +57,7 @@ export default function Page() {
               <Effects
                 bloomDefaults={{
                   enabled: true,
-                  intensity: 0.5,
+                  intensity: 0.3,
                   luminanceThreshold: 1.0,
                   luminanceSmoothing: 0.9,
                   radius: 0.4,
