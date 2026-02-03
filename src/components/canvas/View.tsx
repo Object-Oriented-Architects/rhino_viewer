@@ -24,7 +24,7 @@ import { Three } from '@/helpers/components/Three'
 import * as THREE from 'three'
 import { folder, useControls } from 'leva'
 import { RGBELoader } from 'three/examples/jsm/Addons.js'
-import { EffectComposer, Bloom, SelectiveBloom } from '@react-three/postprocessing'
+import { EffectComposer, Bloom, SelectiveBloom, SMAA } from '@react-three/postprocessing'
 
 interface EnvDefaults {
   fov?: number
@@ -192,7 +192,7 @@ const View = forwardRef<HTMLDivElement, ViewProps>(({ children, orbit, orbitTarg
             <OrbitControls
               enableDamping
               autoRotate
-              autoRotateSpeed={2}
+              autoRotateSpeed={0.5}
               target={orbitTarget}
               minDistance={10}
               maxDistance={30}
@@ -338,6 +338,7 @@ export function Effects({ bloomDefaults = {} }: EffectsProps) {
   // enableNormalPass={false}: MeshRefractionMaterial과의 충돌 방지
   return (
     <EffectComposer multisampling={0} enableNormalPass={false}>
+      <SMAA />
       <Bloom
         intensity={enabled ? intensity : 0}
         luminanceThreshold={luminanceThreshold}

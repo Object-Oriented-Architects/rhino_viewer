@@ -10,7 +10,8 @@ export default function Scene({ ...props }) {
   return (
     <Canvas
       {...props}
-      dpr={[1, 1]}
+      gl={{ antialias: true }}
+      dpr={[1, 2]}
       onCreated={(state) => {
         state.gl.toneMapping = THREE.AgXToneMapping
         state.gl.toneMappingExposure = 1.2
