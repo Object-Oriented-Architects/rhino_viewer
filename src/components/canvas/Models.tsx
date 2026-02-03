@@ -273,16 +273,6 @@ export function Breezm({ onLoadComplete, ...props }) {
   )
 }
 
-// Metal 타입 정의
-type MetalType = 'white' | 'yellow' | 'rose'
-
-// Matcap 텍스처 경로
-const matcapPaths: Record<MetalType, string> = {
-  white: '/model/bluenile/matcap/white.png',
-  yellow: '/model/bluenile/matcap/yellow.png',
-  rose: '/model/bluenile/matcap/rose.png',
-}
-
 // 메시 정보 타입
 interface MeshInfo {
   geometry: THREE.BufferGeometry
@@ -306,19 +296,9 @@ export function Ring({ onLoadComplete, ...props }) {
     loader.setLibraryPath('https://cdn.jsdelivr.net/npm/rhino3dm@8.17.0/')
   })
 
-  // 텍스처들을 useMemo로 로드 (Breezm 패턴 - 깜빡임 방지)
+  // 텍스처들을 useMemo로 로드 (깜빡임 방지)
   const textures = useMemo(() => {
     const loader = new THREE.TextureLoader()
-
-    // Matcap 텍스처 로드
-    const matcapWhite = loader.load(matcapPaths.white)
-    matcapWhite.colorSpace = THREE.SRGBColorSpace
-
-    const matcapYellow = loader.load(matcapPaths.yellow)
-    matcapYellow.colorSpace = THREE.SRGBColorSpace
-
-    const matcapRose = loader.load(matcapPaths.rose)
-    matcapRose.colorSpace = THREE.SRGBColorSpace
 
     // Shadow 텍스처 로드
     const shadow = loader.load(shadowTexturePath)
@@ -328,11 +308,6 @@ export function Ring({ onLoadComplete, ...props }) {
     const shadowAlpha = loader.load('/model/glasses/Breezm_Pbr_shadow_embedded_files/gradient_02.jpg')
 
     return {
-      matcap: {
-        white: matcapWhite,
-        yellow: matcapYellow,
-        rose: matcapRose,
-      },
       shadow,
       shadowAlpha,
     }
@@ -340,8 +315,6 @@ export function Ring({ onLoadComplete, ...props }) {
 
   // Metal 컨트롤
   const metalControls = useControls('Metal', {
-    mode: { value: 'pbr', options: ['matcap', 'pbr'] },
-    type: { value: 'white' as MetalType, options: ['white', 'yellow', 'rose'] },
     color: { value: '#ffffff' },
     brightness: { value: 1.0, min: 0.5, max: 10.0, step: 0.01 },
     metalness: { value: 1.0, min: 0, max: 1, step: 0.01 },
@@ -367,30 +340,20 @@ export function Ring({ onLoadComplete, ...props }) {
     rotationX: { value: -90, min: -180, max: 180, step: 1 },
   })
 
-  // Metal 재질 생성
+  // Metal 재질 생성 (PBR)
   const metalMaterial = useMemo(() => {
     const color = new THREE.Color(metalControls.color)
     color.multiplyScalar(metalControls.brightness)
 
-    if (metalControls.mode === 'pbr') {
-      // PBR 재질 (MeshStandardMaterial)
-      return new THREE.MeshStandardMaterial({
-        color: color,
-        metalness: metalControls.metalness,
-        roughness: metalControls.roughness,
-        envMap: envMap,
-        envMapIntensity: metalControls.envMapIntensity,
-        flatShading: metalControls.flatShading,
-      })
-    } else {
-      // Matcap 재질
-      return new THREE.MeshMatcapMaterial({
-        matcap: textures.matcap[metalControls.type],
-        color: color,
-        flatShading: metalControls.flatShading,
-      })
-    }
-  }, [metalControls, textures, envMap])
+    return new THREE.MeshStandardMaterial({
+      color: color,
+      metalness: metalControls.metalness,
+      roughness: metalControls.roughness,
+      envMap: envMap,
+      envMapIntensity: metalControls.envMapIntensity,
+      flatShading: metalControls.flatShading,
+    })
+  }, [metalControls, envMap])
 
   // 모델에서 geometry 추출 (useMemo로 동기 처리 - 깜빡임 방지)
   const processedModel = useMemo(() => {
