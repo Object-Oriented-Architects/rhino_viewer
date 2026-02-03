@@ -2,6 +2,7 @@
 
 import dynamic from 'next/dynamic'
 import { Suspense, useState, useCallback } from 'react'
+import Image from 'next/image'
 import { Leva } from 'leva'
 import { ringConfig } from '@/config'
 
@@ -29,6 +30,7 @@ const config = ringConfig
 
 export default function Page() {
   const [isModelLoading, setIsModelLoading] = useState(true)
+  const [showComparison, setShowComparison] = useState(false)
 
   const handleModelLoadComplete = useCallback(() => {
     setIsModelLoading(false)
@@ -39,31 +41,55 @@ export default function Page() {
       <div className='h-screen w-screen relative'>
         {isModelLoading && <LoadingSpinner message='Loading...' />}
 
-        <div className='absolute h-screen w-screen'>
-          <Leva collapsed />
-          <View orbit orbitTarget={config.orbitTarget} className='relative h-full'>
-            <Suspense fallback={null}>
-              <Common
-                color='#ffffff'
-                hdrPath={config.hdrPath}
-                cameraPosition={config.cameraPosition}
-                envDefaults={{
-                  fov: config.view.fov,
-                  ...config.light,
-                }}
+        {/* 토글 버튼 */}
+        <button
+          onClick={() => setShowComparison(!showComparison)}
+          className='fixed top-4 left-4 z-[100] px-4 py-2 bg-black/70 hover:bg-black/90 text-white rounded-lg backdrop-blur-sm transition-colors text-sm font-medium'
+        >
+          {showComparison ? 'IMAGE: ON' : 'IMAGE: OFF'}
+        </button>
+
+        <div className={`flex h-screen w-screen ${showComparison ? 'flex-col md:flex-row' : ''}`}>
+          {/* Three.js 영역 */}
+          <div className={`relative ${showComparison ? 'h-1/2 w-full md:h-full md:w-1/2' : 'h-full w-full'}`}>
+            <Leva collapsed />
+            <View orbit orbitTarget={config.orbitTarget} className='relative h-full'>
+              <Suspense fallback={null}>
+                <Common
+                  color='#ffffff'
+                  hdrPath={config.hdrPath}
+                  cameraPosition={config.cameraPosition}
+                  envDefaults={{
+                    fov: config.view.fov,
+                    ...config.light,
+                  }}
+                />
+                <Ring
+                  modelPath={config.modelPath}
+                  shadowTexturePath={config.shadowTexturePath}
+                  metalDefaults={config.metal}
+                  prongDefaults={config.prong}
+                  diamondDefaults={config.diamond}
+                  transformDefaults={config.transform}
+                  onLoadComplete={handleModelLoadComplete}
+                />
+                <Effects bloomDefaults={config.bloom} />
+              </Suspense>
+            </View>
+          </div>
+
+          {/* 렌더링 이미지 영역 */}
+          {showComparison && (
+            <div className='relative h-1/2 w-full md:h-full md:w-1/2 bg-white'>
+              <Image
+                src='/model/ring-260203-angle/render.webp'
+                alt='Render comparison'
+                fill
+                className='object-contain'
+                priority
               />
-              <Ring
-                modelPath={config.modelPath}
-                shadowTexturePath={config.shadowTexturePath}
-                metalDefaults={config.metal}
-                prongDefaults={config.prong}
-                diamondDefaults={config.diamond}
-                transformDefaults={config.transform}
-                onLoadComplete={handleModelLoadComplete}
-              />
-              <Effects bloomDefaults={config.bloom} />
-            </Suspense>
-          </View>
+            </div>
+          )}
         </div>
       </div>
     </>
