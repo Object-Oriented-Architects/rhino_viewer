@@ -218,9 +218,9 @@ export function Effects({ bloomDefaults = {} }: EffectsProps) {
   })
 
   // EffectComposer를 항상 마운트하고 intensity로 제어 (마운트/언마운트 깜빡임 방지)
-  // disableNormalPass: MeshRefractionMaterial과의 충돌 방지
+  // enableNormalPass={false}: MeshRefractionMaterial과의 충돌 방지
   return (
-    <EffectComposer multisampling={0} disableNormalPass>
+    <EffectComposer multisampling={0} enableNormalPass={false}>
       <Bloom
         intensity={enabled ? intensity : 0}
         luminanceThreshold={luminanceThreshold}
