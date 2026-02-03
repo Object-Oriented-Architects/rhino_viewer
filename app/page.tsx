@@ -11,9 +11,6 @@ export default function Home() {
         <li>
           <Link href='/ring'>Ring</Link>
         </li>
-        <li>
-          <Link href='/ring-viewer'>Blue Nile Ring Viewer</Link>
-        </li>
       </ul>
     </div>
   )

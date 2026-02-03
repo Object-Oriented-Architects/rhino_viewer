@@ -1,6 +1,6 @@
 'use client'
 
-import { ShadowAlpha, useGLTF, MeshRefractionMaterial, useEnvironment, CubeCamera, Caustics } from '@react-three/drei'
+import { ShadowAlpha, useGLTF, MeshRefractionMaterial, useEnvironment, CubeCamera } from '@react-three/drei'
 import { useLoader, useThree } from '@react-three/fiber'
 import { useBloomContext } from './View'
 import { Rhino3dmLoader } from 'three/examples/jsm/loaders/3DMLoader.js'
@@ -598,19 +598,10 @@ export function Ring({
             />
           ))}
 
-          {/* Gem 메시들 - CubeCamera + Caustics + MeshRefractionMaterial */}
+          {/* Gem 메시들 - CubeCamera + MeshRefractionMaterial */}
           <CubeCamera resolution={256} frames={1} envMap={envMap}>
             {(cubeTexture) => (
-              <Caustics
-                causticsOnly={false}
-                backside={true}
-                color={gemControls.color}
-                position={[0, 0, 0]}
-                lightSource={[5, 5, -10]}
-                worldRadius={0.1}
-                ior={1.8}
-                intensity={0.1}
-              >
+              <>
                 {gemMeshes.map((meshInfo, index) => (
                   <mesh
                     key={`gem-${index}`}
@@ -636,7 +627,7 @@ export function Ring({
                     />
                   </mesh>
                 ))}
-              </Caustics>
+              </>
             )}
           </CubeCamera>
         </group>
