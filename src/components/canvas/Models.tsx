@@ -365,6 +365,37 @@ export function Ring({
     }
   }, [])
 
+  // 그림자용 커스텀 ShaderMaterial (배경색 무관하게 작동)
+  const shadowMaterial = useMemo(() => {
+    return new THREE.ShaderMaterial({
+      uniforms: {
+        shadowMap: { value: textures.shadow },
+        alphaMap: { value: textures.shadowAlpha },
+        shadowOpacity: { value: 0.5 },
+      },
+      vertexShader: /* glsl */ `
+        varying vec2 vUv;
+        void main() {
+          vUv = uv;
+          gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+        }
+      `,
+      fragmentShader: /* glsl */ `
+        uniform sampler2D shadowMap;
+        uniform sampler2D alphaMap;
+        uniform float shadowOpacity;
+        varying vec2 vUv;
+        void main() {
+          float shadow = 1.0 - texture2D(shadowMap, vUv).r;
+          float alpha = texture2D(alphaMap, vUv).r;
+          gl_FragColor = vec4(0.0, 0.0, 0.0, shadow * alpha * shadowOpacity);
+        }
+      `,
+      transparent: true,
+      depthWrite: false,
+    })
+  }, [textures])
+
   // Metal 기본값 추출
   const {
     color: metalColor = '#ffffff',
@@ -432,12 +463,22 @@ export function Ring({
     fastChroma: { value: diamondFastChroma },
   })
 
+  // Shadow 컨트롤
+  const shadowControls = useControls('Shadow', {
+    opacity: { value: 0.5, min: 0, max: 1, step: 0.01 },
+  })
+
   // Transform 컨트롤
   const transformControls = useControls('Transform', {
     scale: { value: defaultScale, min: 0.001, max: 100, step: 0.001 },
     positionY: { value: defaultPositionY, min: -10, max: 10, step: 0.1 },
     rotationX: { value: defaultRotationX, min: -180, max: 180, step: 1 },
   })
+
+  // shadowOpacity Leva 값 동기화
+  useEffect(() => {
+    shadowMaterial.uniforms.shadowOpacity.value = shadowControls.opacity
+  }, [shadowControls.opacity, shadowMaterial])
 
   // Metal 재질 생성 (PBR - 씬 환경맵 자동 사용)
   // toneMapped: true로 bloom에서 제외 (1.0 이하로 클램프)
@@ -551,19 +592,13 @@ export function Ring({
 
   return (
     <>
-      {/* 바닥 그림자 - glasses 방식 (map + alphaMap) */}
+      {/* 바닥 그림자 - 커스텀 셰이더 (배경색 무관) */}
       <mesh
         rotation={[-Math.PI / 2, 0, 0]}
         position={[0, (modelBounds.min.z - modelCenter.z) * transformControls.scale - 0.01, 0]}
+        material={shadowMaterial}
       >
         <planeGeometry args={[5, 5]} />
-        <meshBasicMaterial
-          map={textures.shadow}
-          alphaMap={textures.shadowAlpha}
-          toneMapped={false}
-          transparent
-          depthWrite={false}
-        />
       </mesh>
 
       <group
