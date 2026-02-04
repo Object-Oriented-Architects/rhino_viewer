@@ -13,12 +13,12 @@ export const ringConfig: SceneConfig = {
   // Leva 기본값
   view: {
     fov: 30,
-    backgroundColor: '#f8f8f8',
+    backgroundColor: '#f7f7f7',
   },
 
   light: {
     envMap: 'hdr',
-    environmentIntensity: 0.4,
+    environmentIntensity: 0.5,
     envRotX: 0,
     envRotY: 0,
     envRotZ: 0,
@@ -29,7 +29,7 @@ export const ringConfig: SceneConfig = {
 
   metal: {
     color: '#ffffff',
-    brightness: 1.0,
+    brightness: 1.5,
     metalness: 1.0,
     roughness: 0.05,
     envMapIntensity: 1.0,
