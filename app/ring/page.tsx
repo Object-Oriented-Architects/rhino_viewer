@@ -104,8 +104,8 @@ export default function Page() {
                 autoRotate
                 autoRotateSpeed={1}
                 target={config.orbitTarget}
-                minDistance={5}
-                maxDistance={10}
+                minDistance={4}
+                maxDistance={5.4}
                 enablePan={false}
               />
               <Suspense fallback={null}>
