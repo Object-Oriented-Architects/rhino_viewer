@@ -2,6 +2,7 @@
 
 export interface ViewConfig {
   fov: number
+  backgroundColor?: string
 }
 
 export interface LightConfig {

@@ -13,6 +13,7 @@ export const ringConfig: SceneConfig = {
   // Leva 기본값
   view: {
     fov: 30,
+    backgroundColor: '#f8f8f8',
   },
 
   light: {

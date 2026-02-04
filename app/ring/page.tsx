@@ -1,9 +1,9 @@
 'use client'
 
 import dynamic from 'next/dynamic'
-import { Suspense, useState, useCallback } from 'react'
+import { Suspense, useState, useCallback, useMemo } from 'react'
 import Image from 'next/image'
-import { Leva } from 'leva'
+import { Leva, useControls } from 'leva'
 import { Canvas } from '@react-three/fiber'
 import { OrbitControls, PerspectiveCamera, Environment, SoftShadows } from '@react-three/drei'
 import { EffectComposer, Bloom, SMAA } from '@react-three/postprocessing'
@@ -43,6 +43,34 @@ export default function Page() {
     setIsModelLoading(false)
   }, [])
 
+  // View 컨트롤
+  const { fov, backgroundColor } = useControls('View', {
+    fov: { value: config.view.fov, min: 10, max: 120, step: 1 },
+    backgroundColor: { value: config.view.backgroundColor || '#ffffff' },
+  })
+
+  // Light 컨트롤
+  const { environmentIntensity, envRotX, envRotY, envRotZ, ambientLightIntensity, directionalLightIntensity } =
+    useControls('Light', {
+      environmentIntensity: { value: config.light.environmentIntensity, min: 0, max: 2, step: 0.01 },
+      envRotX: { value: config.light.envRotX || 0, min: 0, max: 360, step: 1 },
+      envRotY: { value: config.light.envRotY || 0, min: 0, max: 360, step: 1 },
+      envRotZ: { value: config.light.envRotZ || 0, min: 0, max: 360, step: 1 },
+      ambientLightIntensity: { value: config.light.ambientLightIntensity || 0, min: 0, max: 2, step: 0.01 },
+      directionalLightIntensity: { value: config.light.directionalLightIntensity || 0.3, min: 0, max: 2, step: 0.01 },
+    })
+
+  // 환경맵 회전
+  const envRotation = useMemo(
+    () =>
+      new THREE.Euler(
+        THREE.MathUtils.degToRad(envRotX),
+        THREE.MathUtils.degToRad(envRotY),
+        THREE.MathUtils.degToRad(envRotZ),
+      ),
+    [envRotX, envRotY, envRotZ],
+  )
+
   return (
     <>
       {/* PC: 2x2 그리드 / 모바일: 세로 스크롤 */}
@@ -61,20 +89,16 @@ export default function Page() {
               }}
               shadows
             >
-              <color attach='background' args={['#ffffff']} />
+              <color attach='background' args={[backgroundColor]} />
               <SoftShadows />
               <Environment
                 files={config.hdrPath}
-                environmentIntensity={config.light.environmentIntensity}
-                environmentRotation={[
-                  THREE.MathUtils.degToRad(config.light.envRotX || 0),
-                  THREE.MathUtils.degToRad(config.light.envRotY || 0),
-                  THREE.MathUtils.degToRad(config.light.envRotZ || 0),
-                ]}
+                environmentIntensity={environmentIntensity}
+                environmentRotation={envRotation}
               />
-              <ambientLight intensity={config.light.ambientLightIntensity || 0} />
-              <directionalLight position={[50, 50, 50]} intensity={config.light.directionalLightIntensity || 0.3} />
-              <PerspectiveCamera makeDefault fov={config.view.fov} position={config.cameraPosition} />
+              <ambientLight intensity={ambientLightIntensity} />
+              <directionalLight position={[50, 50, 50]} intensity={directionalLightIntensity} />
+              <PerspectiveCamera makeDefault fov={fov} position={config.cameraPosition} />
               <OrbitControls
                 enableDamping
                 autoRotate
