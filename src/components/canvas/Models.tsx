@@ -335,7 +335,6 @@ export function Ring({
   transformDefaults = {},
   ...props
 }: RingProps) {
-
   // 씬의 환경맵 사용 (Common에서 설정한 HDR - Leva로 제어 가능)
   const { scene } = useThree()
   const envMap = scene.environment
@@ -465,7 +464,7 @@ export function Ring({
 
   // Shadow 컨트롤
   const shadowControls = useControls('Shadow', {
-    opacity: { value: 0.5, min: 0, max: 1, step: 0.01 },
+    opacity: { value: 1, min: 0, max: 1, step: 0.01 },
   })
 
   // Transform 컨트롤
@@ -595,7 +594,7 @@ export function Ring({
       {/* 바닥 그림자 - 커스텀 셰이더 (배경색 무관) */}
       <mesh
         rotation={[-Math.PI / 2, 0, 0]}
-        position={[0, (modelBounds.min.z - modelCenter.z) * transformControls.scale - 0.01, 0]}
+        position={[0, (modelBounds.min.z - modelCenter.z) * transformControls.scale, 0]}
         material={shadowMaterial}
       >
         <planeGeometry args={[5, 5]} />
