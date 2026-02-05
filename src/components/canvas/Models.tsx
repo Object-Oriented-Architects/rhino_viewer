@@ -1,6 +1,6 @@
 'use client'
 
-import { ShadowAlpha, useGLTF, MeshRefractionMaterial, useEnvironment, CubeCamera } from '@react-three/drei'
+import { ShadowAlpha, useGLTF, MeshRefractionMaterial, useEnvironment } from '@react-three/drei'
 import { useLoader, useThree } from '@react-three/fiber'
 import { useBloomContext } from './View'
 import { Rhino3dmLoader } from 'three/examples/jsm/loaders/3DMLoader.js'
@@ -336,8 +336,15 @@ export function Ring({
   ...props
 }: RingProps) {
   // 씬의 환경맵 사용 (Common에서 설정한 HDR - Leva로 제어 가능)
-  const { scene } = useThree()
-  const envMap = scene.environment
+  const { scene, gl } = useThree()
+
+  // HDR 환경맵을 CubeTexture로 변환 (CubeCamera 없이 순수 환경만 사용)
+  const cubeTexture = useMemo(() => {
+    if (!scene.environment) return null
+    const cubeRT = new THREE.WebGLCubeRenderTarget(256)
+    cubeRT.fromEquirectangularTexture(gl, scene.environment)
+    return cubeRT.texture
+  }, [scene.environment, gl])
 
   // SelectiveBloom context
   const bloomContext = useBloomContext()
@@ -632,38 +639,32 @@ export function Ring({
             />
           ))}
 
-          {/* Gem 메시들 - CubeCamera + MeshRefractionMaterial */}
-          <CubeCamera resolution={256} frames={1} envMap={envMap}>
-            {(cubeTexture) => (
-              <>
-                {gemMeshes.map((meshInfo, index) => (
-                  <mesh
-                    key={`gem-${index}`}
-                    geometry={meshInfo.geometry}
-                    position={meshInfo.position}
-                    rotation={meshInfo.rotation}
-                    scale={meshInfo.scale}
-                    ref={(mesh) => {
-                      if (mesh && bloomContext) {
-                        bloomContext.registerMesh(mesh)
-                      }
-                    }}
-                  >
-                    <MeshRefractionMaterial
-                      envMap={cubeTexture}
-                      color={gemControls.color}
-                      ior={gemControls.ior}
-                      bounces={gemControls.bounces}
-                      fresnel={gemControls.fresnel}
-                      aberrationStrength={gemControls.aberrationStrength}
-                      fastChroma={gemControls.fastChroma}
-                      toneMapped={false}
-                    />
-                  </mesh>
-                ))}
-              </>
-            )}
-          </CubeCamera>
+          {/* Gem 메시들 - 순수 HDR CubeTexture로 굴절 */}
+          {cubeTexture && gemMeshes.map((meshInfo, index) => (
+            <mesh
+              key={`gem-${index}`}
+              geometry={meshInfo.geometry}
+              position={meshInfo.position}
+              rotation={meshInfo.rotation}
+              scale={meshInfo.scale}
+              ref={(mesh) => {
+                if (mesh && bloomContext) {
+                  bloomContext.registerMesh(mesh)
+                }
+              }}
+            >
+              <MeshRefractionMaterial
+                envMap={cubeTexture}
+                color={gemControls.color}
+                ior={gemControls.ior}
+                bounces={gemControls.bounces}
+                fresnel={gemControls.fresnel}
+                aberrationStrength={gemControls.aberrationStrength}
+                fastChroma={gemControls.fastChroma}
+                toneMapped={false}
+              />
+            </mesh>
+          ))}
         </group>
       </group>
     </>
