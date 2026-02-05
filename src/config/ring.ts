@@ -3,7 +3,7 @@ import { SceneConfig } from './types'
 export const ringConfig: SceneConfig = {
   // 모델 경로
   modelPath: '/model/ring-260203-angle/Ring_Mesh_0205.3dm',
-  hdrPath: '/model/ring-260203-angle/ringCont2_800.hdr',
+  hdrPath: '/model/ring-260203-angle/ringCont3_800.hdr',
   shadowTexturePath: '/model/ring-260203-angle/Ring_Mesh_0203_embedded_files/ring_shadow.jpg',
 
   // 카메라
