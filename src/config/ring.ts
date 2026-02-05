@@ -18,7 +18,7 @@ export const ringConfig: SceneConfig = {
 
   light: {
     envMap: 'hdr',
-    environmentIntensity: 0.5,
+    environmentIntensity: 0.45,
     envRotX: 0,
     envRotY: 0,
     envRotZ: 0,
