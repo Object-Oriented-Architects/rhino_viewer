@@ -43,7 +43,7 @@ export default function Page() {
         {isModelLoading && <LoadingSpinner message='Loading...' />}
 
         <div className='absolute h-screen w-screen'>
-          <Leva collapsed />
+          <Leva hidden />
           <View orbit className='relative h-full'>
             <Suspense fallback={null}>
               <Common />

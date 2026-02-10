@@ -45,7 +45,7 @@ export default function Page() {
         {isModelLoading && <LoadingSpinner message='Loading Blue Nile Ring...' />}
 
         <div className='absolute h-screen w-screen'>
-          <Leva collapsed />
+          <Leva hidden />
           <View orbit orbitTarget={[0, 0, 0]} className='relative h-full'>
             <Suspense fallback={null}>
               <Common
