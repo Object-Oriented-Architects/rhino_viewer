@@ -640,31 +640,32 @@ export function Ring({
           ))}
 
           {/* Gem 메시들 - 순수 HDR CubeTexture로 굴절 */}
-          {cubeTexture && gemMeshes.map((meshInfo, index) => (
-            <mesh
-              key={`gem-${index}`}
-              geometry={meshInfo.geometry}
-              position={meshInfo.position}
-              rotation={meshInfo.rotation}
-              scale={meshInfo.scale}
-              ref={(mesh) => {
-                if (mesh && bloomContext) {
-                  bloomContext.registerMesh(mesh)
-                }
-              }}
-            >
-              <MeshRefractionMaterial
-                envMap={cubeTexture}
-                color={gemControls.color}
-                ior={gemControls.ior}
-                bounces={gemControls.bounces}
-                fresnel={gemControls.fresnel}
-                aberrationStrength={gemControls.aberrationStrength}
-                fastChroma={gemControls.fastChroma}
-                toneMapped={false}
-              />
-            </mesh>
-          ))}
+          {cubeTexture &&
+            gemMeshes.map((meshInfo, index) => (
+              <mesh
+                key={`gem-${index}`}
+                geometry={meshInfo.geometry}
+                position={meshInfo.position}
+                rotation={meshInfo.rotation}
+                scale={meshInfo.scale}
+                ref={(mesh) => {
+                  if (mesh && bloomContext) {
+                    bloomContext.registerMesh(mesh)
+                  }
+                }}
+              >
+                <MeshRefractionMaterial
+                  envMap={cubeTexture}
+                  color={gemControls.color}
+                  ior={gemControls.ior}
+                  bounces={gemControls.bounces}
+                  fresnel={gemControls.fresnel}
+                  aberrationStrength={gemControls.aberrationStrength}
+                  fastChroma={gemControls.fastChroma}
+                  toneMapped={false}
+                />
+              </mesh>
+            ))}
         </group>
       </group>
     </>

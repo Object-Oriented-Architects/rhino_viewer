@@ -31,9 +31,9 @@ const LoadingSpinner = ({ message }: { message: string }) => (
 const config = ringConfig
 
 const renderImages = [
-  '/model/ring-260203-angle/render/render01.jpg',
-  '/model/ring-260203-angle/render/render02.jpg',
-  '/model/ring-260203-angle/render/render03.jpg',
+  '/model/ring-260316/render/1.jpg',
+  '/model/ring-260316/render/2.jpg',
+  '/model/ring-260316/render/3.jpg',
 ]
 
 export default function Page() {
