@@ -3,7 +3,7 @@ import { SceneConfig } from './types'
 export const ringPlusplasticConfig: SceneConfig = {
   // 모델 경로
   modelPath: '/model/ring-260316/Ring_plusplastic_mesh.3dm',
-  hdrPath: '/model/ring-260316/ring-plusplastic-800.hdr',
+  hdrPath: '/model/ring-260316/ring-plusplastic2-800.hdr',
   shadowTexturePath: '/model/ring-260203-angle/Ring_Mesh_0203_embedded_files/ring_shadow.jpg',
 
   // 카메라
@@ -29,7 +29,7 @@ export const ringPlusplasticConfig: SceneConfig = {
 
   metal: {
     color: '#ffffff',
-    brightness: 1.5,
+    brightness: 1.2,
     metalness: 1.0,
     roughness: 0.05,
     envMapIntensity: 1.0,
@@ -46,7 +46,7 @@ export const ringPlusplasticConfig: SceneConfig = {
   },
 
   diamond: {
-    color: '#CECECE',
+    color: '#E5E5E5',
     ior: 2.4,
     bounces: 5,
     fresnel: 1.0,
