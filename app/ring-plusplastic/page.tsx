@@ -30,6 +30,12 @@ const LoadingSpinner = ({ message }: { message: string }) => (
 
 const config = ringPlusplasticConfig
 
+const hdrOptions = {
+  'HDR 1': '/model/ring-260316/ring-plusplastic-800.hdr',
+  'HDR 2': '/model/ring-260316/ring-plusplastic2-800.hdr',
+  'HDR 3': '/model/ring-260316/ring-plusplastic3-800.hdr',
+}
+
 const renderImages = [
   '/model/ring-260316/render/1.jpg',
   '/model/ring-260316/render/2.jpg',
@@ -50,8 +56,9 @@ export default function Page() {
   })
 
   // Light 컨트롤
-  const { environmentIntensity, envRotX, envRotY, envRotZ, ambientLightIntensity, directionalLightIntensity } =
+  const { hdrFile, environmentIntensity, envRotX, envRotY, envRotZ, ambientLightIntensity, directionalLightIntensity } =
     useControls('Light', {
+      hdrFile: { value: config.hdrPath, options: hdrOptions },
       environmentIntensity: { value: config.light.environmentIntensity, min: 0, max: 2, step: 0.01 },
       envRotX: { value: config.light.envRotX || 0, min: 0, max: 360, step: 1 },
       envRotY: { value: config.light.envRotY || 0, min: 0, max: 360, step: 1 },
@@ -92,7 +99,7 @@ export default function Page() {
               <color attach='background' args={[backgroundColor]} />
               <SoftShadows />
               <Environment
-                files={config.hdrPath}
+                files={hdrFile}
                 environmentIntensity={environmentIntensity}
                 environmentRotation={envRotation}
               />
