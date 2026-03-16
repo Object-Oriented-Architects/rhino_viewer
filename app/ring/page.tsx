@@ -75,7 +75,7 @@ export default function Page() {
     <>
       {/* PC: 2x2 그리드 / 모바일: 세로 스크롤 */}
       <div className='min-h-screen w-full overflow-y-auto bg-white md:flex md:items-center md:justify-center md:overflow-hidden'>
-        <Leva hidden />
+        <Leva />
         <div className='flex flex-col gap-2 p-2 md:grid md:grid-cols-2 md:gap-4 md:p-4 md:w-[min(100vw,100vh)]'>
           {/* Three.js 영역 - 직접 Canvas 사용 */}
           <div className='relative w-full aspect-square bg-white'>
