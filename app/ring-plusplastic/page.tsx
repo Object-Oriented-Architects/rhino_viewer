@@ -8,7 +8,7 @@ import { Canvas } from '@react-three/fiber'
 import { OrbitControls, PerspectiveCamera, Environment, SoftShadows } from '@react-three/drei'
 import { EffectComposer, Bloom, SMAA } from '@react-three/postprocessing'
 import * as THREE from 'three'
-import { ringConfig } from '@/config'
+import { ringPlusplasticConfig } from '@/config'
 
 // Ring 컴포넌트 동적 로드
 const Ring = dynamic(() => import('@/components/canvas/Models').then((mod) => mod.Ring), { ssr: false })
@@ -28,12 +28,12 @@ const LoadingSpinner = ({ message }: { message: string }) => (
   </div>
 )
 
-const config = ringConfig
+const config = ringPlusplasticConfig
 
 const renderImages = [
-  '/model/ring-260203-angle/render/render01.jpg',
-  '/model/ring-260203-angle/render/render02.jpg',
-  '/model/ring-260203-angle/render/render03.jpg',
+  '/model/ring-260316/render/1.jpg',
+  '/model/ring-260316/render/2.jpg',
+  '/model/ring-260316/render/3.jpg',
 ]
 
 export default function Page() {
@@ -75,7 +75,7 @@ export default function Page() {
     <>
       {/* PC: 2x2 그리드 / 모바일: 세로 스크롤 */}
       <div className='min-h-screen w-full overflow-y-auto bg-white md:flex md:items-center md:justify-center md:overflow-hidden'>
-        <Leva hidden />
+        <Leva />
         <div className='flex flex-col gap-2 p-2 md:grid md:grid-cols-2 md:gap-4 md:p-4 md:w-[min(100vw,100vh)]'>
           {/* Three.js 영역 - 직접 Canvas 사용 */}
           <div className='relative w-full aspect-square bg-white'>

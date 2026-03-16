@@ -11,6 +11,9 @@ export default function Home() {
         <li>
           <Link href='/ring'>Ring</Link>
         </li>
+        <li>
+          <Link href='/ring-plusplastic'>Ring PlusPlastic</Link>
+        </li>
       </ul>
     </div>
   )
