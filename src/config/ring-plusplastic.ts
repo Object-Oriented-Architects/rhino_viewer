@@ -2,7 +2,7 @@ import { SceneConfig } from './types'
 
 export const ringPlusplasticConfig: SceneConfig = {
   // 모델 경로
-  modelPath: '/model/ring-260316/Ring_plusplastic_mesh.3dm',
+  modelPath: '/model/ring-260402/Ring_plusplastic_SingleCut_mesh.3dm',
   hdrPath: '/model/ring-260316/ring-plusplastic2-800.hdr',
   shadowTexturePath: '/model/ring-260203-angle/Ring_Mesh_0203_embedded_files/ring_shadow.jpg',
 
