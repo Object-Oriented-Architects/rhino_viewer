@@ -67,4 +67,17 @@ export const ringConfig: SceneConfig = {
     luminanceSmoothing: 1.0,
     radius: 0.95,
   },
+
+  ao: {
+    enabled: true,
+    intensity: 3,
+    radius: 0.5,
+    samples: 30,
+    rings: 4,
+    distanceThreshold: 0.2,
+    distanceFalloff: 0.1,
+    rangeThreshold: 0.5,
+    rangeFalloff: 0.1,
+    bias: 0.01,
+  },
 }

@@ -57,6 +57,19 @@ export interface BloomConfig {
   radius: number
 }
 
+export interface AOConfig {
+  enabled: boolean
+  intensity: number
+  radius: number
+  samples: number
+  rings: number
+  distanceThreshold: number
+  distanceFalloff: number
+  rangeThreshold: number
+  rangeFalloff: number
+  bias: number
+}
+
 export interface SceneConfig {
   // 모델 경로
   modelPath: string
@@ -75,4 +88,5 @@ export interface SceneConfig {
   diamond: DiamondConfig
   transform: TransformConfig
   bloom: BloomConfig
+  ao?: AOConfig
 }

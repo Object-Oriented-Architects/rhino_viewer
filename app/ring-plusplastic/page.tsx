@@ -1,17 +1,111 @@
 'use client'
 
 import dynamic from 'next/dynamic'
-import { Suspense, useState, useCallback, useMemo } from 'react'
+import { Suspense, useState, useCallback, useMemo, useEffect, useContext } from 'react'
 import Image from 'next/image'
 import { Leva, useControls } from 'leva'
 import { Canvas } from '@react-three/fiber'
+import { useThree, useFrame } from '@react-three/fiber'
 import { OrbitControls, PerspectiveCamera, Environment, SoftShadows } from '@react-three/drei'
-import { EffectComposer, Bloom, SMAA } from '@react-three/postprocessing'
+import { EffectComposer, Bloom, SMAA, SSAO, EffectComposerContext } from '@react-three/postprocessing'
 import * as THREE from 'three'
 import { ringPlusplasticConfig } from '@/config'
 
 // Ring 컴포넌트 동적 로드
 const Ring = dynamic(() => import('@/components/canvas/Models').then((mod) => mod.Ring), { ssr: false })
+
+// EffectComposer의 모든 패스에서 gem 메시를 제외하고,
+// 포스트프로세싱 이후 gem을 별도로 렌더링하는 컴포넌트
+function GemExcluder() {
+  const { composer, normalPass } = useContext(EffectComposerContext)
+  const { scene, camera, gl } = useThree()
+
+  useEffect(() => {
+    if (!composer) return
+
+    const passes = (composer as any).passes as any[]
+    const overrides = new Map<any, Function>()
+
+    for (const pass of passes) {
+      const original = pass.render.bind(pass)
+      overrides.set(pass, original)
+
+      pass.render = (
+        renderer: THREE.WebGLRenderer,
+        inputBuffer: any,
+        outputBuffer: any,
+        deltaTime?: number,
+        stencilTest?: boolean,
+      ) => {
+        // 모든 패스 전에 gem 숨기기
+        const hidden: THREE.Object3D[] = []
+        scene.traverse((obj) => {
+          if (obj instanceof THREE.Mesh && obj.userData.isGem && obj.visible) {
+            obj.visible = false
+            hidden.push(obj)
+          }
+        })
+
+        original(renderer, inputBuffer, outputBuffer, deltaTime, stencilTest)
+
+        // 패스 후에 gem 복원
+        hidden.forEach((m) => {
+          m.visible = true
+        })
+      }
+    }
+
+    return () => {
+      for (const [pass, original] of overrides) {
+        pass.render = original
+      }
+    }
+  }, [composer, normalPass, scene])
+
+  // EffectComposer 이후 gem만 별도 렌더링 (priority 2 = EffectComposer 뒤에 실행)
+  useFrame(() => {
+    const prevBackground = scene.background
+    scene.background = null
+    gl.autoClear = false
+    gl.clearDepth()
+
+    const ctx = gl.getContext()
+
+    // 1단계: 금속만 depth-only 렌더 (color 쓰기 안 함) → depth buffer에 금속 깊이 기록
+    const gemMeshes: THREE.Object3D[] = []
+    scene.traverse((obj) => {
+      if (obj instanceof THREE.Mesh && obj.userData.isGem && obj.visible) {
+        obj.visible = false
+        gemMeshes.push(obj)
+      }
+    })
+    ctx.colorMask(false, false, false, false)
+    gl.render(scene, camera)
+    ctx.colorMask(true, true, true, true)
+
+    // 2단계: gem만 렌더 (depth test ON → 금속 뒤의 gem은 가려짐)
+    const nonGemMeshes: THREE.Object3D[] = []
+    scene.traverse((obj) => {
+      if (obj instanceof THREE.Mesh && !obj.userData.isGem && obj.visible) {
+        obj.visible = false
+        nonGemMeshes.push(obj)
+      }
+    })
+    gemMeshes.forEach((m) => {
+      m.visible = true
+    })
+    gl.render(scene, camera)
+
+    // 복원
+    scene.background = prevBackground
+    gl.autoClear = true
+    nonGemMeshes.forEach((m) => {
+      m.visible = true
+    })
+  }, 2)
+
+  return null
+}
 
 // 로딩 스피너 컴포넌트
 const LoadingSpinner = ({ message }: { message: string }) => (
@@ -66,6 +160,31 @@ export default function Page() {
       ambientLightIntensity: { value: config.light.ambientLightIntensity || 0, min: 0, max: 2, step: 0.01 },
       directionalLightIntensity: { value: config.light.directionalLightIntensity || 0.3, min: 0, max: 2, step: 0.01 },
     })
+
+  // AO 컨트롤
+  const {
+    aoEnabled,
+    aoIntensity,
+    aoRadius: aoRadiusVal,
+    aoSamples: aoSamplesVal,
+    aoRings,
+    aoDistanceThreshold,
+    aoDistanceFalloff,
+    aoRangeThreshold,
+    aoRangeFalloff,
+    aoBias,
+  } = useControls('AO', {
+    aoEnabled: { value: true, label: 'enabled' },
+    aoIntensity: { value: 3, min: 0, max: 20, step: 0.1, label: 'intensity' },
+    aoRadius: { value: 0.5, min: 0, max: 5, step: 0.01, label: 'radius' },
+    aoSamples: { value: 30, min: 1, max: 64, step: 1, label: 'samples' },
+    aoRings: { value: 4, min: 1, max: 16, step: 1, label: 'rings' },
+    aoDistanceThreshold: { value: 0.2, min: 0, max: 5, step: 0.01, label: 'distanceThreshold' },
+    aoDistanceFalloff: { value: 0.1, min: 0, max: 5, step: 0.01, label: 'distanceFalloff' },
+    aoRangeThreshold: { value: 0.5, min: 0, max: 2, step: 0.01, label: 'rangeThreshold' },
+    aoRangeFalloff: { value: 0.1, min: 0, max: 2, step: 0.01, label: 'rangeFalloff' },
+    aoBias: { value: 0.01, min: 0, max: 1, step: 0.01, label: 'bias' },
+  })
 
   // 환경맵 회전
   const envRotation = useMemo(
@@ -126,7 +245,22 @@ export default function Page() {
                   onLoadComplete={handleModelLoadComplete}
                 />
               </Suspense>
-              <EffectComposer multisampling={0} enableNormalPass={false}>
+              <EffectComposer multisampling={0} enableNormalPass>
+                <GemExcluder />
+                <SSAO
+                  key={`ssao-${aoEnabled}-${aoIntensity}-${aoRadiusVal}-${aoSamplesVal}-${aoRings}-${aoDistanceThreshold}-${aoDistanceFalloff}-${aoRangeThreshold}-${aoRangeFalloff}-${aoBias}`}
+                  samples={aoSamplesVal}
+                  rings={aoRings}
+                  distanceThreshold={aoDistanceThreshold}
+                  distanceFalloff={aoDistanceFalloff}
+                  rangeThreshold={aoRangeThreshold}
+                  rangeFalloff={aoRangeFalloff}
+                  bias={aoBias}
+                  radius={aoRadiusVal}
+                  intensity={aoEnabled ? aoIntensity : 0}
+                  luminanceInfluence={0}
+                  depthAwareUpsampling
+                />
                 <SMAA />
                 <Bloom
                   intensity={config.bloom.enabled ? config.bloom.intensity : 0}

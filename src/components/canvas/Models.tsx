@@ -648,6 +648,7 @@ export function Ring({
                 position={meshInfo.position}
                 rotation={meshInfo.rotation}
                 scale={meshInfo.scale}
+                userData={{ isGem: true }}
                 ref={(mesh) => {
                   if (mesh && bloomContext) {
                     bloomContext.registerMesh(mesh)
