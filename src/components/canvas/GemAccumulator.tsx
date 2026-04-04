@@ -105,6 +105,7 @@ const reprojectBlendFrag = /* glsl */ `
 `
 
 // Composite shader: alpha-over onto framebuffer (with sRGB conversion for screen output)
+// gem은 의도적으로 toneMapped=false → HDR 밝기를 유지하여 반짝임/brilliance 표현
 const compositeFrag = /* glsl */ `
   uniform sampler2D tGems;
   uniform bool toScreen;
