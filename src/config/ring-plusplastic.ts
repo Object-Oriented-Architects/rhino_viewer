@@ -50,7 +50,7 @@ export const ringPlusplasticConfig: SceneConfig = {
     ior: 2.42,
     bounces: 6,
     fresnel: 1.0,
-    aberrationStrength: 0.02,
+    aberrationStrength: 0.003,
     fastChroma: false,
   },
 

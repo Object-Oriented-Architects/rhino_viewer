@@ -338,14 +338,6 @@ export function Ring({
   // 씬의 환경맵 사용 (Common에서 설정한 HDR - Leva로 제어 가능)
   const { scene, gl } = useThree()
 
-  // HDR 환경맵을 CubeTexture로 변환 (CubeCamera 없이 순수 환경만 사용)
-  const cubeTexture = useMemo(() => {
-    if (!scene.environment) return null
-    const cubeRT = new THREE.WebGLCubeRenderTarget(512)
-    cubeRT.fromEquirectangularTexture(gl, scene.environment)
-    return cubeRT.texture
-  }, [scene.environment, gl])
-
   // SelectiveBloom context
   const bloomContext = useBloomContext()
 
@@ -465,9 +457,18 @@ export function Ring({
     ior: { value: diamondIor, min: 1.5, max: 3, step: 0.01 },
     bounces: { value: diamondBounces, min: 1, max: 10, step: 1 },
     fresnel: { value: diamondFresnel, min: 0, max: 10, step: 0.1 },
-    aberrationStrength: { value: diamondAberration, min: 0, max: 0.2, step: 0.001 },
+    'aberration (×1000)': { value: diamondAberration * 1000, min: 1, max: 100, step: 1 },
     fastChroma: { value: diamondFastChroma },
+    envMapResolution: { value: 512, options: { '128': 128, '256': 256, '512': 512, '1024': 1024 } },
   })
+
+  // HDR 환경맵을 CubeTexture로 변환 (CubeCamera 없이 순수 환경만 사용)
+  const cubeTexture = useMemo(() => {
+    if (!scene.environment) return null
+    const cubeRT = new THREE.WebGLCubeRenderTarget(gemControls.envMapResolution)
+    cubeRT.fromEquirectangularTexture(gl, scene.environment)
+    return cubeRT.texture
+  }, [scene.environment, gl, gemControls.envMapResolution])
 
   // Shadow 컨트롤
   const shadowControls = useControls('Shadow', {
@@ -661,7 +662,7 @@ export function Ring({
                   ior={gemControls.ior}
                   bounces={gemControls.bounces}
                   fresnel={gemControls.fresnel}
-                  aberrationStrength={gemControls.aberrationStrength}
+                  aberrationStrength={gemControls['aberration (×1000)'] / 1000}
                   fastChroma={gemControls.fastChroma}
                   toneMapped={false}
                 />
