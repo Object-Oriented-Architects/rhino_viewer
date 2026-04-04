@@ -78,10 +78,17 @@ const reprojectBlendFrag = /* glsl */ `
     }
 
     // 6. Luminance-biased 블렌딩
-    // 현재 프레임이 누적보다 밝으면 → sparkle/fire → 더 많이 반영
-    // 현재 프레임이 비슷하거나 어두우면 → noise → 강하게 스무딩
     float lumCurrent = dot(current.rgb, vec3(0.2126, 0.7152, 0.0722));
     float lumAccum = dot(accumulated.rgb, vec3(0.2126, 0.7152, 0.0722));
+
+    // TIR black-out 방지: 현재 프레임이 거의 검정인데 누적값은 밝으면 → 누적값 유지
+    if (lumCurrent < 0.01 && lumAccum > 0.05) {
+      gl_FragColor = accumulated;
+      return;
+    }
+
+    // 현재 프레임이 누적보다 밝으면 → sparkle/fire → 더 많이 반영
+    // 현재 프레임이 비슷하거나 어두우면 → noise → 강하게 스무딩
     float brightnessBias = smoothstep(0.0, 0.5, lumCurrent - lumAccum);
     float adjustedBlend = mix(blendFactor, max(blendFactor, 0.8), brightnessBias);
 
