@@ -5,20 +5,23 @@ import { Suspense, useState, useCallback, useMemo, useEffect, useContext } from 
 import Image from 'next/image'
 import { Leva, useControls } from 'leva'
 import { Canvas } from '@react-three/fiber'
-import { useThree, useFrame } from '@react-three/fiber'
+import { useThree } from '@react-three/fiber'
 import { OrbitControls, PerspectiveCamera, Environment, SoftShadows } from '@react-three/drei'
 import { EffectComposer, Bloom, SMAA, SSAO, EffectComposerContext } from '@react-three/postprocessing'
 import * as THREE from 'three'
 import { ringPlusplasticConfig } from '@/config'
+import { GemAccumulator } from '@/components/canvas/GemAccumulator'
 
 // Ring 컴포넌트 동적 로드
 const Ring = dynamic(() => import('@/components/canvas/Models').then((mod) => mod.Ring), { ssr: false })
 
 // EffectComposer의 모든 패스에서 gem 메시를 제외하고,
 // 포스트프로세싱 이후 gem을 별도로 렌더링하는 컴포넌트
+// EffectComposer 패스에서 gem을 제외하는 컴포넌트 (패스 패칭만 담당)
+// gem 렌더링은 GemAccumulator가 별도로 처리
 function GemExcluder() {
   const { composer, normalPass } = useContext(EffectComposerContext)
-  const { scene, camera, gl } = useThree()
+  const { scene } = useThree()
 
   useEffect(() => {
     if (!composer) return
@@ -37,7 +40,6 @@ function GemExcluder() {
         deltaTime?: number,
         stencilTest?: boolean,
       ) => {
-        // 모든 패스 전에 gem 숨기기
         const hidden: THREE.Object3D[] = []
         scene.traverse((obj) => {
           if (obj instanceof THREE.Mesh && obj.userData.isGem && obj.visible) {
@@ -48,7 +50,6 @@ function GemExcluder() {
 
         original(renderer, inputBuffer, outputBuffer, deltaTime, stencilTest)
 
-        // 패스 후에 gem 복원
         hidden.forEach((m) => {
           m.visible = true
         })
@@ -61,48 +62,6 @@ function GemExcluder() {
       }
     }
   }, [composer, normalPass, scene])
-
-  // EffectComposer 이후 gem만 별도 렌더링 (priority 2 = EffectComposer 뒤에 실행)
-  useFrame(() => {
-    const prevBackground = scene.background
-    scene.background = null
-    gl.autoClear = false
-    gl.clearDepth()
-
-    const ctx = gl.getContext()
-
-    // 1단계: 금속만 depth-only 렌더 (color 쓰기 안 함) → depth buffer에 금속 깊이 기록
-    const gemMeshes: THREE.Object3D[] = []
-    scene.traverse((obj) => {
-      if (obj instanceof THREE.Mesh && obj.userData.isGem && obj.visible) {
-        obj.visible = false
-        gemMeshes.push(obj)
-      }
-    })
-    ctx.colorMask(false, false, false, false)
-    gl.render(scene, camera)
-    ctx.colorMask(true, true, true, true)
-
-    // 2단계: gem만 렌더 (depth test ON → 금속 뒤의 gem은 가려짐)
-    const nonGemMeshes: THREE.Object3D[] = []
-    scene.traverse((obj) => {
-      if (obj instanceof THREE.Mesh && !obj.userData.isGem && obj.visible) {
-        obj.visible = false
-        nonGemMeshes.push(obj)
-      }
-    })
-    gemMeshes.forEach((m) => {
-      m.visible = true
-    })
-    gl.render(scene, camera)
-
-    // 복원
-    scene.background = prevBackground
-    gl.autoClear = true
-    nonGemMeshes.forEach((m) => {
-      m.visible = true
-    })
-  }, 2)
 
   return null
 }
@@ -184,6 +143,13 @@ export default function Page() {
     aoRangeThreshold: { value: 0.5, min: 0, max: 2, step: 0.01, label: 'rangeThreshold' },
     aoRangeFalloff: { value: 0.1, min: 0, max: 2, step: 0.01, label: 'rangeFalloff' },
     aoBias: { value: 0.01, min: 0, max: 1, step: 0.01, label: 'bias' },
+  })
+
+  // Accumulation 컨트롤
+  const { accumEnabled, accumBlendFactor, accumMaxFrames } = useControls('Accumulation', {
+    accumEnabled: { value: true, label: 'enabled' },
+    accumBlendFactor: { value: 0.3, min: 0.1, max: 1.0, step: 0.05, label: 'blendFactor' },
+    accumMaxFrames: { value: 64, min: 1, max: 128, step: 1, label: 'maxFrames' },
   })
 
   // 환경맵 회전
@@ -271,6 +237,11 @@ export default function Page() {
                   mipmapBlur
                 />
               </EffectComposer>
+              <GemAccumulator
+                enabled={accumEnabled}
+                movingBlendFactor={accumBlendFactor}
+                maxAccumulationFrames={accumMaxFrames}
+              />
             </Canvas>
           </div>
 

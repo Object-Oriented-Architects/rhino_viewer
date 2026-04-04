@@ -464,7 +464,7 @@ export function Ring({
     color: { value: diamondColor },
     ior: { value: diamondIor, min: 1.5, max: 3, step: 0.01 },
     bounces: { value: diamondBounces, min: 1, max: 10, step: 1 },
-    fresnel: { value: diamondFresnel, min: 0, max: 1, step: 0.01 },
+    fresnel: { value: diamondFresnel, min: 0, max: 10, step: 0.1 },
     aberrationStrength: { value: diamondAberration, min: 0, max: 0.1, step: 0.001 },
     fastChroma: { value: diamondFastChroma },
   })
