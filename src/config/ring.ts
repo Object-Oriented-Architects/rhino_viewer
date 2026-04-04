@@ -46,12 +46,12 @@ export const ringConfig: SceneConfig = {
   },
 
   diamond: {
-    color: '#CECECE',
-    ior: 2.4,
-    bounces: 5,
+    color: '#F0F0F0',
+    ior: 2.42,
+    bounces: 6,
     fresnel: 1.0,
-    aberrationStrength: 0.01,
-    fastChroma: true,
+    aberrationStrength: 0.02,
+    fastChroma: false,
   },
 
   transform: {

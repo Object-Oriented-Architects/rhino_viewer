@@ -341,7 +341,7 @@ export function Ring({
   // HDR 환경맵을 CubeTexture로 변환 (CubeCamera 없이 순수 환경만 사용)
   const cubeTexture = useMemo(() => {
     if (!scene.environment) return null
-    const cubeRT = new THREE.WebGLCubeRenderTarget(256)
+    const cubeRT = new THREE.WebGLCubeRenderTarget(512)
     cubeRT.fromEquirectangularTexture(gl, scene.environment)
     return cubeRT.texture
   }, [scene.environment, gl])
@@ -465,7 +465,7 @@ export function Ring({
     ior: { value: diamondIor, min: 1.5, max: 3, step: 0.01 },
     bounces: { value: diamondBounces, min: 1, max: 10, step: 1 },
     fresnel: { value: diamondFresnel, min: 0, max: 10, step: 0.1 },
-    aberrationStrength: { value: diamondAberration, min: 0, max: 0.1, step: 0.001 },
+    aberrationStrength: { value: diamondAberration, min: 0, max: 0.2, step: 0.001 },
     fastChroma: { value: diamondFastChroma },
   })
 
