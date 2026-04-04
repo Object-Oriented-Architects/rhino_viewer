@@ -42,9 +42,17 @@ const reprojectBlendFrag = /* glsl */ `
   void main() {
     vec4 current = texture2D(tCurrent, vUv);
 
-    // 현재 프레임에 gem이 없으면 (alpha 0) 그대로 출력
+    // 현재 프레임에 gem이 없으면 (alpha 0)
+    // 즉시 (0,0,0,0)으로 지우면 다음 프레임 TIR 시 가드 작동 불가 → 영구 검정
+    // 대신 이전 누적값을 빠르게 페이드: 회전 시 즉시 사라지고, 정지 시 보존
     if (current.a < 0.001) {
-      gl_FragColor = current;
+      vec4 accum = texture2D(tAccumulated, vUv);
+      if (accum.a > 0.001) {
+        float fade = max(1.0 - blendFactor * 5.0, 0.0);
+        gl_FragColor = accum * fade;
+      } else {
+        gl_FragColor = vec4(0.0);
+      }
       return;
     }
 
@@ -77,7 +85,7 @@ const reprojectBlendFrag = /* glsl */ `
       return;
     }
 
-    // 6. Luminance-biased 블렌딩
+    // 6. TIR (전반사) 감지 및 블렌딩
     float lumCurrent = dot(current.rgb, vec3(0.2126, 0.7152, 0.0722));
     float lumAccum = dot(accumulated.rgb, vec3(0.2126, 0.7152, 0.0722));
 
@@ -126,6 +134,8 @@ interface GemAccumulatorProps {
   movingBlendFactor?: number
   maxAccumulationFrames?: number
   jitterEnabled?: boolean
+  /** 값이 바뀔 때마다 누적 버퍼 초기화 (옵션 변경 시 오래된 데이터 방지) */
+  resetKey?: number
 }
 
 export function GemAccumulator({
@@ -133,11 +143,22 @@ export function GemAccumulator({
   movingBlendFactor = 0.4,
   maxAccumulationFrames = 64,
   jitterEnabled = true,
+  resetKey = 0,
 }: GemAccumulatorProps) {
   const { scene, camera, gl } = useThree()
   const cameraMotion = useCameraMotion()
   const accumBuffer = useAccumulationBuffer()
   const jitterFrame = useRef(0)
+
+  // resetKey가 바뀌면 누적 버퍼 초기화 (옵션 변경 시 오래된 데이터 제거)
+  const prevResetKey = useRef(resetKey)
+  useEffect(() => {
+    if (prevResetKey.current !== resetKey) {
+      prevResetKey.current = resetKey
+      accumBuffer.resetAccumulation()
+      jitterFrame.current = 0
+    }
+  }, [resetKey, accumBuffer])
 
   // 이전 프레임의 viewProjection matrix 저장
   const prevViewProjMatrix = useRef(new THREE.Matrix4())

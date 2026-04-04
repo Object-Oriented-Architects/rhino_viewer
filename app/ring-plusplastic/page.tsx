@@ -1,16 +1,25 @@
 'use client'
 
 import dynamic from 'next/dynamic'
-import { Suspense, useState, useCallback, useMemo, useEffect, useContext } from 'react'
+import { Suspense, useState, useCallback, useMemo, useEffect, useContext, useRef } from 'react'
 import Image from 'next/image'
-import { Leva, useControls } from 'leva'
-import { Canvas } from '@react-three/fiber'
+import { Leva, useControls, button, levaStore } from 'leva'
+import { Canvas, useLoader } from '@react-three/fiber'
 import { useThree } from '@react-three/fiber'
 import { OrbitControls, PerspectiveCamera, Environment, SoftShadows } from '@react-three/drei'
+import { RGBELoader } from 'three/examples/jsm/loaders/RGBELoader.js'
 import { EffectComposer, Bloom, SMAA, SSAO, EffectComposerContext } from '@react-three/postprocessing'
 import * as THREE from 'three'
 import { ringPlusplasticConfig } from '@/config'
 import { GemAccumulator } from '@/components/canvas/GemAccumulator'
+
+// blob URL은 확장자가 없어서 drei의 Environment가 로더를 판별 못 함
+// RGBELoader로 직접 로드하여 map prop으로 전달
+function BlobHdrEnvironment({ url, ...props }: { url: string } & Omit<React.ComponentProps<typeof Environment>, 'files' | 'map'>) {
+  const texture = useLoader(RGBELoader, url)
+  texture.mapping = THREE.EquirectangularReflectionMapping
+  return <Environment map={texture} {...props} />
+}
 
 // Ring 컴포넌트 동적 로드
 const Ring = dynamic(() => import('@/components/canvas/Models').then((mod) => mod.Ring), { ssr: false })
@@ -97,10 +106,93 @@ const renderImages = [
 
 export default function Page() {
   const [isModelLoading, setIsModelLoading] = useState(true)
+  const [ringControlsVersion, setRingControlsVersion] = useState(0)
+  const [uploadedModels, setUploadedModels] = useState<Record<string, string>>({})
+  const [uploadedHdrs, setUploadedHdrs] = useState<Record<string, string>>({})
+  const modelInputRef = useRef<HTMLInputElement>(null)
+  const hdrInputRef = useRef<HTMLInputElement>(null)
 
   const handleModelLoadComplete = useCallback(() => {
     setIsModelLoading(false)
   }, [])
+
+  const handleRingControlsChange = useCallback(() => {
+    setRingControlsVersion((v) => v + 1)
+  }, [])
+
+  const modelOptions = useMemo(() => ({
+    'Default': config.modelPath,
+    ...uploadedModels,
+  }), [uploadedModels])
+
+  const hdrOptionsFull = useMemo(() => ({
+    ...hdrOptions,
+    ...uploadedHdrs,
+  }), [uploadedHdrs])
+
+  const pendingModelUrl = useRef<string | null>(null)
+  const pendingHdrUrl = useRef<string | null>(null)
+
+  const handleModelFile = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (file) {
+      const url = URL.createObjectURL(file)
+      pendingModelUrl.current = url
+      setUploadedModels((prev) => ({ ...prev, [file.name]: url }))
+    }
+    e.target.value = ''
+  }, [])
+
+  const handleHdrFile = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (file) {
+      const url = URL.createObjectURL(file)
+      pendingHdrUrl.current = url
+      setUploadedHdrs((prev) => ({ ...prev, [file.name]: url }))
+    }
+    e.target.value = ''
+  }, [])
+
+  useEffect(() => {
+    return () => {
+      Object.values(uploadedModels).forEach(URL.revokeObjectURL)
+      Object.values(uploadedHdrs).forEach(URL.revokeObjectURL)
+    }
+  }, [])
+
+  // File 컨트롤 (최상단) — function form은 [values, set, get] 튜플 반환
+  const [fileValues, setFileControls] = useControls('File', () => ({
+    '3dm 업로드': button(() => modelInputRef.current?.click()),
+    modelFile: { value: config.modelPath, options: modelOptions, label: '3dm 모델' },
+    'HDR 업로드': button(() => hdrInputRef.current?.click()),
+    hdrFile: { value: config.hdrPath, options: hdrOptionsFull, label: 'HDR 환경맵' },
+  }), [modelOptions, hdrOptionsFull]) as any
+  const modelFile: string = fileValues?.modelFile ?? config.modelPath
+  const hdrFile: string = fileValues?.hdrFile ?? config.hdrPath
+
+  // 업로드 후 드롭다운 자동 선택
+  useEffect(() => {
+    if (pendingModelUrl.current && setFileControls) {
+      setFileControls({ modelFile: pendingModelUrl.current })
+      pendingModelUrl.current = null
+    }
+  }, [modelOptions, setFileControls])
+
+  useEffect(() => {
+    if (pendingHdrUrl.current && setFileControls) {
+      setFileControls({ hdrFile: pendingHdrUrl.current })
+      pendingHdrUrl.current = null
+    }
+  }, [hdrOptionsFull, setFileControls])
+
+  // modelFile 변경 시 로딩 표시
+  const prevModelFileRef = useRef(modelFile)
+  useEffect(() => {
+    if (modelFile !== prevModelFileRef.current) {
+      prevModelFileRef.current = modelFile
+      setIsModelLoading(true)
+    }
+  }, [modelFile])
 
   // View 컨트롤
   const { fov, backgroundColor } = useControls('View', {
@@ -109,9 +201,8 @@ export default function Page() {
   })
 
   // Light 컨트롤
-  const { hdrFile, environmentIntensity, envRotX, envRotY, envRotZ, ambientLightIntensity, directionalLightIntensity } =
+  const { environmentIntensity, envRotX, envRotY, envRotZ, ambientLightIntensity, directionalLightIntensity } =
     useControls('Light', {
-      hdrFile: { value: config.hdrPath, options: hdrOptions },
       environmentIntensity: { value: config.light.environmentIntensity, min: 0, max: 2, step: 0.01 },
       envRotX: { value: config.light.envRotX || 0, min: 0, max: 360, step: 1 },
       envRotY: { value: config.light.envRotY || 0, min: 0, max: 360, step: 1 },
@@ -152,6 +243,19 @@ export default function Page() {
     accumMaxFrames: { value: 64, min: 1, max: 128, step: 1, label: 'maxFrames' },
   })
 
+  // 페이지 레벨 옵션이 바뀔 때마다 누적 버퍼 초기화용 키
+  // (Ring 내부 Leva 컨트롤 변경은 Ring이 re-render → gem 외형 변경 → 자연스럽게 갱신)
+  const resetCounter = useRef(0)
+  const resetKey = useMemo(() => {
+    return ++resetCounter.current
+  }, [
+    hdrFile, environmentIntensity, envRotX, envRotY, envRotZ,
+    ambientLightIntensity, directionalLightIntensity,
+    accumBlendFactor, accumMaxFrames,
+    fov, backgroundColor,
+    ringControlsVersion,
+  ])
+
   // 환경맵 회전
   const envRotation = useMemo(
     () =>
@@ -168,6 +272,8 @@ export default function Page() {
       {/* PC: 2x2 그리드 / 모바일: 세로 스크롤 */}
       <div className='min-h-screen w-full overflow-y-auto bg-white md:flex md:items-center md:justify-center md:overflow-hidden'>
         <Leva />
+        <input ref={modelInputRef} type='file' accept='.3dm' hidden onChange={handleModelFile} />
+        <input ref={hdrInputRef} type='file' accept='.hdr,.exr' hidden onChange={handleHdrFile} />
         <div className='flex flex-col gap-2 p-2 md:grid md:grid-cols-2 md:gap-4 md:p-4 md:w-[min(100vw,100vh)]'>
           {/* Three.js 영역 - 직접 Canvas 사용 */}
           <div className='relative w-full aspect-square bg-white'>
@@ -183,11 +289,21 @@ export default function Page() {
             >
               <color attach='background' args={[backgroundColor]} />
               <SoftShadows />
-              <Environment
-                files={hdrFile}
-                environmentIntensity={environmentIntensity}
-                environmentRotation={envRotation}
-              />
+              {hdrFile.startsWith('blob:') ? (
+                <BlobHdrEnvironment
+                  key={hdrFile}
+                  url={hdrFile}
+                  environmentIntensity={environmentIntensity}
+                  environmentRotation={envRotation}
+                />
+              ) : (
+                <Environment
+                  key={hdrFile}
+                  files={hdrFile}
+                  environmentIntensity={environmentIntensity}
+                  environmentRotation={envRotation}
+                />
+              )}
               <ambientLight intensity={ambientLightIntensity} />
               <directionalLight position={[50, 50, 50]} intensity={directionalLightIntensity} />
               <PerspectiveCamera makeDefault fov={fov} position={config.cameraPosition} />
@@ -202,13 +318,15 @@ export default function Page() {
               />
               <Suspense fallback={null}>
                 <Ring
-                  modelPath={config.modelPath}
+                  key={modelFile}
+                  modelPath={modelFile}
                   shadowTexturePath={config.shadowTexturePath}
                   metalDefaults={config.metal}
                   prongDefaults={config.prong}
                   diamondDefaults={config.diamond}
                   transformDefaults={config.transform}
                   onLoadComplete={handleModelLoadComplete}
+                  onControlsChange={handleRingControlsChange}
                 />
               </Suspense>
               <EffectComposer multisampling={0} enableNormalPass>
@@ -241,6 +359,7 @@ export default function Page() {
                 enabled={accumEnabled}
                 movingBlendFactor={accumBlendFactor}
                 maxAccumulationFrames={accumMaxFrames}
+                resetKey={resetKey}
               />
             </Canvas>
           </div>

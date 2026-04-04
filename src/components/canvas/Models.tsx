@@ -316,6 +316,7 @@ interface ProngDefaults {
 
 interface RingProps {
   onLoadComplete?: () => void
+  onControlsChange?: () => void
   modelPath?: string
   shadowTexturePath?: string
   metalDefaults?: MetalDefaults
@@ -327,6 +328,7 @@ interface RingProps {
 
 export function Ring({
   onLoadComplete,
+  onControlsChange,
   modelPath = '/model/ring-260203/Ring_Mesh_0203.3dm',
   shadowTexturePath = '/model/ring-260203/shadow.jpg',
   metalDefaults = {},
@@ -464,7 +466,7 @@ export function Ring({
     color: { value: diamondColor },
     ior: { value: diamondIor, min: 1.5, max: 3, step: 0.01 },
     bounces: { value: diamondBounces, min: 1, max: 10, step: 1 },
-    fresnel: { value: diamondFresnel, min: 0, max: 10, step: 0.1 },
+    fresnel: { value: diamondFresnel, min: 0, max: 100, step: 0.1 },
     aberrationStrength: { value: diamondAberration, min: 0, max: 0.1, step: 0.001 },
     fastChroma: { value: diamondFastChroma },
   })
@@ -485,6 +487,11 @@ export function Ring({
   useEffect(() => {
     shadowMaterial.uniforms.shadowOpacity.value = shadowControls.opacity
   }, [shadowControls.opacity, shadowMaterial])
+
+  // Leva 컨트롤 변경 시 accumulation 초기화 알림
+  useEffect(() => {
+    onControlsChange?.()
+  }, [metalControls, prongControls, gemControls, transformControls, onControlsChange])
 
   // Metal 재질 생성 (PBR - 씬 환경맵 자동 사용)
   // toneMapped: true로 bloom에서 제외 (1.0 이하로 클램프)
