@@ -296,7 +296,6 @@ interface DiamondDefaults {
   bounces?: number
   fresnel?: number
   aberrationStrength?: number
-  fastChroma?: boolean
 }
 
 interface TransformDefaults {
@@ -423,7 +422,6 @@ export function Ring({
     bounces: diamondBounces = 4,
     fresnel: diamondFresnel = 0.1,
     aberrationStrength: diamondAberration = 0.044,
-    fastChroma: diamondFastChroma = true,
   } = diamondDefaults
 
   // Transform 기본값 추출
@@ -460,7 +458,6 @@ export function Ring({
     bounces: { value: diamondBounces, min: 1, max: 10, step: 1 },
     fresnel: { value: diamondFresnel, min: 0, max: 100, step: 0.1 },
     'aberration (×1000)': { value: diamondAberration * 1000, min: 1, max: 100, step: 1 },
-    fastChroma: { value: diamondFastChroma },
     envMapResolution: { value: 512, options: { '128': 128, '256': 256, '512': 512, '1024': 1024 } },
   })
 
@@ -670,7 +667,7 @@ export function Ring({
                   bounces={gemControls.bounces}
                   fresnel={gemControls.fresnel}
                   aberrationStrength={gemControls['aberration (×1000)'] / 1000}
-                  fastChroma={gemControls.fastChroma}
+                  fastChroma={false}
                   toneMapped={false}
                 />
               </mesh>

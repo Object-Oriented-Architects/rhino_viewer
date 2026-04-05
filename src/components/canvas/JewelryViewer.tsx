@@ -27,7 +27,6 @@ const blueNileDiamondParams = {
   bounces: 4,
   aberrationStrength: 0.044,
   fresnel: 0.1,
-  fastChroma: true,
 }
 
 export function JewelryViewer({ onLoadComplete }: JewelryViewerProps) {
@@ -84,7 +83,6 @@ export function JewelryViewer({ onLoadComplete }: JewelryViewerProps) {
     bounces: { value: blueNileDiamondParams.bounces, min: 1, max: 10, step: 1 },
     fresnel: { value: blueNileDiamondParams.fresnel, min: 0, max: 1, step: 0.01 },
     aberrationStrength: { value: blueNileDiamondParams.aberrationStrength, min: 0, max: 0.1, step: 0.001 },
-    fastChroma: { value: blueNileDiamondParams.fastChroma },
     // 다이아몬드 Transform
     scale: { value: 0.01, min: 0.001, max: 0.1, step: 0.001 },
     positionY: { value: 0.003, min: -0.05, max: 0.05, step: 0.001 },
@@ -165,7 +163,7 @@ export function JewelryViewer({ onLoadComplete }: JewelryViewerProps) {
           bounces={diamondControls.bounces}
           fresnel={diamondControls.fresnel}
           aberrationStrength={diamondControls.aberrationStrength}
-          fastChroma={diamondControls.fastChroma}
+          fastChroma={false}
           toneMapped={false}
         />
       </mesh>

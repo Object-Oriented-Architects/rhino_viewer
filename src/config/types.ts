@@ -40,7 +40,6 @@ export interface DiamondConfig {
   bounces: number
   fresnel: number
   aberrationStrength: number
-  fastChroma: boolean
 }
 
 export interface TransformConfig {

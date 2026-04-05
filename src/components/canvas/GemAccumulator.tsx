@@ -89,8 +89,9 @@ const reprojectBlendFrag = /* glsl */ `
     float lumCurrent = dot(current.rgb, vec3(0.2126, 0.7152, 0.0722));
     float lumAccum = dot(accumulated.rgb, vec3(0.2126, 0.7152, 0.0722));
 
-    // TIR black-out 방지: 현재 프레임이 거의 검정인데 누적값은 밝으면 → 누적값 유지
-    if (lumCurrent < 0.01 && lumAccum > 0.05) {
+    // TIR black-out 방지: 현재 프레임이 거의 검정이면 무조건 누적값 유지
+    // (검은 TIR 프레임이 누적 버퍼에 들어가면 영구 고착되므로 차단)
+    if (lumCurrent < 0.01 && current.a > 0.5) {
       gl_FragColor = accumulated;
       return;
     }

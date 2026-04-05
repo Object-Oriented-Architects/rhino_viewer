@@ -51,7 +51,6 @@ export const ringConfig: SceneConfig = {
     bounces: 6,
     fresnel: 1.0,
     aberrationStrength: 0.003,
-    fastChroma: false,
   },
 
   transform: {
