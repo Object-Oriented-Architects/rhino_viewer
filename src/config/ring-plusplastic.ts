@@ -65,6 +65,11 @@ export const ringPlusplasticConfig: SceneConfig = {
     luminanceThreshold: 1.0,
     luminanceSmoothing: 1.0,
     radius: 0.95,
+    motionBloom: {
+      enabled: true,
+      fadeInSpeed: 8,
+      fadeOutSpeed: 3,
+    },
   },
 
   ao: {

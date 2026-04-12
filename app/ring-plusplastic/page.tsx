@@ -8,10 +8,11 @@ import { Canvas, useLoader } from '@react-three/fiber'
 import { useThree } from '@react-three/fiber'
 import { OrbitControls, PerspectiveCamera, Environment, SoftShadows } from '@react-three/drei'
 import { RGBELoader } from 'three/examples/jsm/loaders/RGBELoader.js'
-import { EffectComposer, Bloom, SMAA, SSAO, EffectComposerContext } from '@react-three/postprocessing'
+import { EffectComposer, SMAA, SSAO, EffectComposerContext } from '@react-three/postprocessing'
 import * as THREE from 'three'
 import { ringPlusplasticConfig } from '@/config'
 import { GemAccumulator } from '@/components/canvas/GemAccumulator'
+import { ScreenBloom } from '@/components/canvas/ScreenBloom'
 
 // blob URL은 확장자가 없어서 drei의 Environment가 로더를 판별 못 함
 // RGBELoader로 직접 로드하여 map prop으로 전달
@@ -195,9 +196,10 @@ export default function Page() {
   }, [modelFile])
 
   // View 컨트롤
-  const { fov, backgroundColor } = useControls('View', {
+  const { fov, backgroundColor, autoRotate } = useControls('View', {
     fov: { value: config.view.fov, min: 10, max: 120, step: 1 },
     backgroundColor: { value: config.view.backgroundColor || '#ffffff' },
+    autoRotate: { value: true, label: 'auto rotate' },
   })
 
   // Light 컨트롤
@@ -234,6 +236,25 @@ export default function Page() {
     aoRangeThreshold: { value: 0.5, min: 0, max: 2, step: 0.01, label: 'rangeThreshold' },
     aoRangeFalloff: { value: 0.1, min: 0, max: 2, step: 0.01, label: 'rangeFalloff' },
     aoBias: { value: 0.01, min: 0, max: 1, step: 0.01, label: 'bias' },
+  })
+
+  // Bloom 컨트롤
+  const {
+    bloomEnabled,
+    bloomIntensity,
+    motionBloomEnabled,
+    bloomFadeInSpeed,
+    bloomFadeOutSpeed,
+    bloomThreshold,
+    bloomRadius,
+  } = useControls('Bloom', {
+    bloomEnabled: { value: config.bloom.enabled, label: 'enabled' },
+    bloomIntensity: { value: config.bloom.intensity, min: 0, max: 5, step: 0.01, label: 'intensity' },
+    motionBloomEnabled: { value: config.bloom.motionBloom?.enabled ?? true, label: 'motion bloom' },
+    bloomFadeInSpeed: { value: config.bloom.motionBloom?.fadeInSpeed ?? 8, min: 1, max: 20, step: 0.5, label: 'fade in speed' },
+    bloomFadeOutSpeed: { value: config.bloom.motionBloom?.fadeOutSpeed ?? 3, min: 1, max: 20, step: 0.5, label: 'fade out speed' },
+    bloomThreshold: { value: config.bloom.luminanceThreshold, min: 0, max: 2, step: 0.01, label: 'threshold' },
+    bloomRadius: { value: config.bloom.radius, min: 0, max: 2, step: 0.01, label: 'radius' },
   })
 
   // Accumulation 컨트롤
@@ -309,7 +330,7 @@ export default function Page() {
               <PerspectiveCamera makeDefault fov={fov} position={config.cameraPosition} />
               <OrbitControls
                 enableDamping
-                autoRotate
+                autoRotate={autoRotate}
                 autoRotateSpeed={1}
                 target={config.orbitTarget}
                 minDistance={4}
@@ -346,14 +367,6 @@ export default function Page() {
                   depthAwareUpsampling
                 />
                 <SMAA />
-                <Bloom
-                  intensity={config.bloom.enabled ? config.bloom.intensity : 0}
-                  luminanceThreshold={config.bloom.luminanceThreshold}
-                  luminanceSmoothing={config.bloom.luminanceSmoothing}
-                  radius={config.bloom.radius}
-                  levels={9}
-                  mipmapBlur
-                />
               </EffectComposer>
               <GemAccumulator
                 enabled={accumEnabled}
@@ -361,6 +374,16 @@ export default function Page() {
                 maxAccumulationFrames={accumMaxFrames}
                 resetKey={resetKey}
               />
+              {bloomEnabled && (
+                <ScreenBloom
+                  intensity={bloomIntensity}
+                  threshold={bloomThreshold}
+                  radius={bloomRadius}
+                  motionEnabled={motionBloomEnabled}
+                  fadeInSpeed={bloomFadeInSpeed}
+                  fadeOutSpeed={bloomFadeOutSpeed}
+                />
+              )}
             </Canvas>
           </div>
 
