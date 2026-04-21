@@ -1,41 +1,24 @@
 'use client'
 
 import dynamic from 'next/dynamic'
-import { Suspense, useState, useCallback, useMemo, useEffect, useContext, useRef } from 'react'
+import { Suspense, useState, useCallback, useMemo, useEffect, useRef, useContext } from 'react'
 import Image from 'next/image'
 import { Leva, useControls, button, levaStore } from 'leva'
-import { Canvas, useLoader } from '@react-three/fiber'
-import { useThree } from '@react-three/fiber'
-import { OrbitControls, PerspectiveCamera, Environment, SoftShadows } from '@react-three/drei'
+import { Canvas, useLoader, useThree } from '@react-three/fiber'
+import { OrbitControls, PerspectiveCamera, Environment, Caustics } from '@react-three/drei'
 import { RGBELoader } from 'three/examples/jsm/loaders/RGBELoader.js'
-import { EffectComposer, SMAA, SSAO, EffectComposerContext } from '@react-three/postprocessing'
+import { EffectComposer, SMAA, Bloom, EffectComposerContext } from '@react-three/postprocessing'
 import * as THREE from 'three'
 import { ringPlusplasticConfig } from '@/config'
 import { GemAccumulator } from '@/components/canvas/GemAccumulator'
-import { ScreenBloom } from '@/components/canvas/ScreenBloom'
 
-// blob URL은 확장자가 없어서 drei의 Environment가 로더를 판별 못 함
-// RGBELoader로 직접 로드하여 map prop으로 전달
-function BlobHdrEnvironment({ url, ...props }: { url: string } & Omit<React.ComponentProps<typeof Environment>, 'files' | 'map'>) {
-  const texture = useLoader(RGBELoader, url)
-  texture.mapping = THREE.EquirectangularReflectionMapping
-  return <Environment map={texture} {...props} />
-}
-
-// Ring 컴포넌트 동적 로드
-const Ring = dynamic(() => import('@/components/canvas/Models').then((mod) => mod.Ring), { ssr: false })
-
-// EffectComposer의 모든 패스에서 gem 메시를 제외하고,
-// 포스트프로세싱 이후 gem을 별도로 렌더링하는 컴포넌트
-// EffectComposer 패스에서 gem을 제외하는 컴포넌트 (패스 패칭만 담당)
-// gem 렌더링은 GemAccumulator가 별도로 처리
+// EffectComposer의 모든 패스에서 gem 메시를 제외 (gem은 GemAccumulator가 별도 처리)
 function GemExcluder() {
-  const { composer, normalPass } = useContext(EffectComposerContext)
+  const { composer } = useContext(EffectComposerContext)
   const { scene } = useThree()
 
   useEffect(() => {
     if (!composer) return
-
     const passes = (composer as any).passes as any[]
     const overrides = new Map<any, Function>()
 
@@ -57,9 +40,7 @@ function GemExcluder() {
             hidden.push(obj)
           }
         })
-
         original(renderer, inputBuffer, outputBuffer, deltaTime, stencilTest)
-
         hidden.forEach((m) => {
           m.visible = true
         })
@@ -71,12 +52,22 @@ function GemExcluder() {
         pass.render = original
       }
     }
-  }, [composer, normalPass, scene])
+  }, [composer, scene])
 
   return null
 }
 
-// 로딩 스피너 컴포넌트
+// blob URL은 확장자가 없어서 drei의 Environment가 로더를 판별 못 함
+// RGBELoader로 직접 로드하여 map prop으로 전달
+function BlobHdrEnvironment({ url, ...props }: { url: string } & Omit<React.ComponentProps<typeof Environment>, 'files' | 'map'>) {
+  const texture = useLoader(RGBELoader, url)
+  texture.mapping = THREE.EquirectangularReflectionMapping
+  return <Environment map={texture} {...props} />
+}
+
+// Ring 컴포넌트 동적 로드
+const Ring = dynamic(() => import('@/components/canvas/Models').then((mod) => mod.Ring), { ssr: false })
+
 const LoadingSpinner = ({ message }: { message: string }) => (
   <div className='absolute inset-0 flex flex-col items-center justify-center bg-black bg-opacity-70 z-50'>
     <svg className='-ml-1 mr-3 size-8 animate-spin text-white' fill='none' viewBox='0 0 24 24'>
@@ -107,7 +98,6 @@ const renderImages = [
 
 export default function Page() {
   const [isModelLoading, setIsModelLoading] = useState(true)
-  const [ringControlsVersion, setRingControlsVersion] = useState(0)
   const [uploadedModels, setUploadedModels] = useState<Record<string, string>>({})
   const [uploadedHdrs, setUploadedHdrs] = useState<Record<string, string>>({})
   const modelInputRef = useRef<HTMLInputElement>(null)
@@ -115,10 +105,6 @@ export default function Page() {
 
   const handleModelLoadComplete = useCallback(() => {
     setIsModelLoading(false)
-  }, [])
-
-  const handleRingControlsChange = useCallback(() => {
-    setRingControlsVersion((v) => v + 1)
   }, [])
 
   const modelOptions = useMemo(() => ({
@@ -161,7 +147,12 @@ export default function Page() {
     }
   }, [])
 
-  // File 컨트롤 (최상단) — function form은 [values, set, get] 튜플 반환
+  // 디버그: levaStore를 window에 노출 (측정/튜닝용)
+  useEffect(() => {
+    if (typeof window !== 'undefined') (window as any).__leva = levaStore
+  }, [])
+
+  // File 컨트롤
   const [fileValues, setFileControls] = useControls('File', () => ({
     '3dm 업로드': button(() => modelInputRef.current?.click()),
     modelFile: { value: config.modelPath, options: modelOptions, label: '3dm 모델' },
@@ -171,7 +162,6 @@ export default function Page() {
   const modelFile: string = fileValues?.modelFile ?? config.modelPath
   const hdrFile: string = fileValues?.hdrFile ?? config.hdrPath
 
-  // 업로드 후 드롭다운 자동 선택
   useEffect(() => {
     if (pendingModelUrl.current && setFileControls) {
       setFileControls({ modelFile: pendingModelUrl.current })
@@ -186,7 +176,6 @@ export default function Page() {
     }
   }, [hdrOptionsFull, setFileControls])
 
-  // modelFile 변경 시 로딩 표시
   const prevModelFileRef = useRef(modelFile)
   useEffect(() => {
     if (modelFile !== prevModelFileRef.current) {
@@ -213,68 +202,59 @@ export default function Page() {
       directionalLightIntensity: { value: config.light.directionalLightIntensity || 0.3, min: 0, max: 2, step: 0.01 },
     })
 
-  // AO 컨트롤
-  const {
-    aoEnabled,
-    aoIntensity,
-    aoRadius: aoRadiusVal,
-    aoSamples: aoSamplesVal,
-    aoRings,
-    aoDistanceThreshold,
-    aoDistanceFalloff,
-    aoRangeThreshold,
-    aoRangeFalloff,
-    aoBias,
-  } = useControls('AO', {
-    aoEnabled: { value: true, label: 'enabled' },
-    aoIntensity: { value: 3, min: 0, max: 20, step: 0.1, label: 'intensity' },
-    aoRadius: { value: 0.5, min: 0, max: 5, step: 0.01, label: 'radius' },
-    aoSamples: { value: 30, min: 1, max: 64, step: 1, label: 'samples' },
-    aoRings: { value: 4, min: 1, max: 16, step: 1, label: 'rings' },
-    aoDistanceThreshold: { value: 0.2, min: 0, max: 5, step: 0.01, label: 'distanceThreshold' },
-    aoDistanceFalloff: { value: 0.1, min: 0, max: 5, step: 0.01, label: 'distanceFalloff' },
-    aoRangeThreshold: { value: 0.5, min: 0, max: 2, step: 0.01, label: 'rangeThreshold' },
-    aoRangeFalloff: { value: 0.1, min: 0, max: 2, step: 0.01, label: 'rangeFalloff' },
-    aoBias: { value: 0.01, min: 0, max: 1, step: 0.01, label: 'bias' },
+  // Accumulation 컨트롤 — TIR black-out guard + noise 수렴
+  // blendFactor 낮을수록 자글거림 ↓ (motion blur ↑ 트레이드오프)
+  // maxFrames 높을수록 정지 시 더 깊게 수렴 (sparkle은 약간 둔해짐)
+  const { accumEnabled, accumBlendFactor, accumMaxFrames, accumJitter } = useControls('Accumulation', {
+    accumEnabled: { value: true, label: 'enabled' },
+    accumBlendFactor: { value: 0.1, min: 0.05, max: 1.0, step: 0.05, label: 'blendFactor (moving)' },
+    accumMaxFrames: { value: 128, min: 1, max: 256, step: 1, label: 'maxFrames (still)' },
+    accumJitter: { value: true, label: 'sub-pixel jitter' },
   })
 
-  // Bloom 컨트롤
-  const {
-    bloomEnabled,
-    bloomIntensity,
-    motionBloomEnabled,
-    bloomFadeInSpeed,
-    bloomFadeOutSpeed,
-    bloomThreshold,
-    bloomRadius,
-  } = useControls('Bloom', {
+  // Bloom 컨트롤 (CodeSandbox 단일 Bloom)
+  const { bloomEnabled, bloomIntensity, bloomThreshold, bloomLevels, bloomRadius, bloomMipmap } = useControls('Bloom', {
     bloomEnabled: { value: config.bloom.enabled, label: 'enabled' },
     bloomIntensity: { value: config.bloom.intensity, min: 0, max: 5, step: 0.01, label: 'intensity' },
-    motionBloomEnabled: { value: config.bloom.motionBloom?.enabled ?? true, label: 'motion bloom' },
-    bloomFadeInSpeed: { value: config.bloom.motionBloom?.fadeInSpeed ?? 8, min: 1, max: 20, step: 0.5, label: 'fade in speed' },
-    bloomFadeOutSpeed: { value: config.bloom.motionBloom?.fadeOutSpeed ?? 3, min: 1, max: 20, step: 0.5, label: 'fade out speed' },
     bloomThreshold: { value: config.bloom.luminanceThreshold, min: 0, max: 2, step: 0.01, label: 'threshold' },
+    bloomLevels: { value: config.bloom.levels ?? 9, min: 1, max: 10, step: 1, label: 'levels' },
     bloomRadius: { value: config.bloom.radius, min: 0, max: 2, step: 0.01, label: 'radius' },
+    bloomMipmap: { value: true, label: 'mipmapBlur' },
   })
 
-  // Accumulation 컨트롤
-  const { accumEnabled, accumBlendFactor, accumMaxFrames } = useControls('Accumulation', {
-    accumEnabled: { value: true, label: 'enabled' },
-    accumBlendFactor: { value: 0.3, min: 0.1, max: 1.0, step: 0.05, label: 'blendFactor' },
-    accumMaxFrames: { value: 64, min: 1, max: 128, step: 1, label: 'maxFrames' },
+  // Caustics 컨트롤
+  const causticsDefaults = config.caustics!
+  const {
+    causticsEnabled,
+    causticsColor,
+    causticsIor,
+    causticsBacksideIOR,
+    causticsWorldRadius,
+    causticsIntensity,
+    causticsPosY,
+    causticsLightX,
+    causticsLightY,
+    causticsLightZ,
+  } = useControls('Caustics', {
+    causticsEnabled: { value: causticsDefaults.enabled, label: 'enabled' },
+    causticsColor: { value: causticsDefaults.color, label: 'color' },
+    causticsIor: { value: causticsDefaults.ior, min: 1.0, max: 3.0, step: 0.01, label: 'ior' },
+    causticsBacksideIOR: { value: causticsDefaults.backfaceIor, min: 1.0, max: 3.0, step: 0.01, label: 'backsideIOR' },
+    causticsWorldRadius: { value: causticsDefaults.worldRadius, min: 0.01, max: 1.0, step: 0.01, label: 'worldRadius' },
+    causticsIntensity: { value: causticsDefaults.intensity, min: 0, max: 1, step: 0.01, label: 'intensity' },
+    causticsPosY: { value: -0.5, min: -5, max: 5, step: 0.1, label: 'positionY' },
+    causticsLightX: { value: causticsDefaults.lightSource[0], min: -20, max: 20, step: 0.5, label: 'lightSrc X' },
+    causticsLightY: { value: causticsDefaults.lightSource[1], min: -20, max: 20, step: 0.5, label: 'lightSrc Y' },
+    causticsLightZ: { value: causticsDefaults.lightSource[2], min: -20, max: 20, step: 0.5, label: 'lightSrc Z' },
   })
 
-  // 페이지 레벨 옵션이 바뀔 때마다 누적 버퍼 초기화용 키
-  // (Ring 내부 Leva 컨트롤 변경은 Ring이 re-render → gem 외형 변경 → 자연스럽게 갱신)
+  // Accumulation 리셋 키 — 파라미터 변경 시 버퍼 무효화
   const resetCounter = useRef(0)
-  const resetKey = useMemo(() => {
-    return ++resetCounter.current
-  }, [
-    hdrFile, environmentIntensity, envRotX, envRotY, envRotZ,
+  const resetKey = useMemo(() => ++resetCounter.current, [
+    modelFile, hdrFile, fov, backgroundColor,
+    environmentIntensity, envRotX, envRotY, envRotZ,
     ambientLightIntensity, directionalLightIntensity,
-    accumBlendFactor, accumMaxFrames,
-    fov, backgroundColor,
-    ringControlsVersion,
+    accumBlendFactor, accumMaxFrames, accumJitter,
   ])
 
   // 환경맵 회전
@@ -290,26 +270,15 @@ export default function Page() {
 
   return (
     <>
-      {/* PC: 2x2 그리드 / 모바일: 세로 스크롤 */}
       <div className='min-h-screen w-full overflow-y-auto bg-white md:flex md:items-center md:justify-center md:overflow-hidden'>
         <Leva />
         <input ref={modelInputRef} type='file' accept='.3dm' hidden onChange={handleModelFile} />
         <input ref={hdrInputRef} type='file' accept='.hdr,.exr' hidden onChange={handleHdrFile} />
         <div className='flex flex-col gap-2 p-2 md:grid md:grid-cols-2 md:gap-4 md:p-4 md:w-[min(100vw,100vh)]'>
-          {/* Three.js 영역 - 직접 Canvas 사용 */}
           <div className='relative w-full aspect-square bg-white'>
             {isModelLoading && <LoadingSpinner message='Loading...' />}
-            <Canvas
-              gl={{ antialias: true }}
-              dpr={[1, 2]}
-              onCreated={(state) => {
-                state.gl.toneMapping = THREE.AgXToneMapping
-                state.gl.toneMappingExposure = 1.2
-              }}
-              shadows
-            >
+            <Canvas gl={{ antialias: true }} dpr={[2, 3]} shadows>
               <color attach='background' args={[backgroundColor]} />
-              <SoftShadows />
               {hdrFile.startsWith('blob:') ? (
                 <BlobHdrEnvironment
                   key={hdrFile}
@@ -331,63 +300,70 @@ export default function Page() {
               <OrbitControls
                 enableDamping
                 autoRotate={autoRotate}
-                autoRotateSpeed={1}
+                autoRotateSpeed={0.3}
                 target={config.orbitTarget}
                 minDistance={4}
                 maxDistance={5.4}
                 enablePan={false}
               />
               <Suspense fallback={null}>
-                <Ring
-                  key={modelFile}
-                  modelPath={modelFile}
-                  shadowTexturePath={config.shadowTexturePath}
-                  metalDefaults={config.metal}
-                  prongDefaults={config.prong}
-                  diamondDefaults={config.diamond}
-                  transformDefaults={config.transform}
-                  onLoadComplete={handleModelLoadComplete}
-                  onControlsChange={handleRingControlsChange}
-                />
+                {causticsEnabled ? (
+                  <Caustics
+                    backside
+                    causticsOnly={false}
+                    color={causticsColor}
+                    position={[0, causticsPosY, 0]}
+                    lightSource={[causticsLightX, causticsLightY, causticsLightZ]}
+                    worldRadius={causticsWorldRadius}
+                    ior={causticsIor}
+                    backsideIOR={causticsBacksideIOR}
+                    intensity={causticsIntensity}
+                  >
+                    <Ring
+                      key={modelFile}
+                      modelPath={modelFile}
+                      shadowTexturePath={config.shadowTexturePath}
+                      metalDefaults={config.metal}
+                      prongDefaults={config.prong}
+                      diamondDefaults={config.diamond}
+                      transformDefaults={config.transform}
+                      onLoadComplete={handleModelLoadComplete}
+                    />
+                  </Caustics>
+                ) : (
+                  <Ring
+                    key={modelFile}
+                    modelPath={modelFile}
+                    shadowTexturePath={config.shadowTexturePath}
+                    metalDefaults={config.metal}
+                    prongDefaults={config.prong}
+                    diamondDefaults={config.diamond}
+                    transformDefaults={config.transform}
+                    onLoadComplete={handleModelLoadComplete}
+                  />
+                )}
               </Suspense>
-              <EffectComposer multisampling={0} enableNormalPass>
+              <EffectComposer multisampling={4} enableNormalPass={false}>
                 <GemExcluder />
-                <SSAO
-                  key={`ssao-${aoEnabled}-${aoIntensity}-${aoRadiusVal}-${aoSamplesVal}-${aoRings}-${aoDistanceThreshold}-${aoDistanceFalloff}-${aoRangeThreshold}-${aoRangeFalloff}-${aoBias}`}
-                  samples={aoSamplesVal}
-                  rings={aoRings}
-                  distanceThreshold={aoDistanceThreshold}
-                  distanceFalloff={aoDistanceFalloff}
-                  rangeThreshold={aoRangeThreshold}
-                  rangeFalloff={aoRangeFalloff}
-                  bias={aoBias}
-                  radius={aoRadiusVal}
-                  intensity={aoEnabled ? aoIntensity : 0}
-                  luminanceInfluence={0}
-                  depthAwareUpsampling
-                />
                 <SMAA />
+                <Bloom
+                  intensity={bloomEnabled ? bloomIntensity : 0}
+                  luminanceThreshold={bloomThreshold}
+                  levels={bloomLevels}
+                  radius={bloomRadius}
+                  mipmapBlur={bloomMipmap}
+                />
               </EffectComposer>
               <GemAccumulator
                 enabled={accumEnabled}
                 movingBlendFactor={accumBlendFactor}
                 maxAccumulationFrames={accumMaxFrames}
+                jitterEnabled={accumJitter}
                 resetKey={resetKey}
               />
-              {bloomEnabled && (
-                <ScreenBloom
-                  intensity={bloomIntensity}
-                  threshold={bloomThreshold}
-                  radius={bloomRadius}
-                  motionEnabled={motionBloomEnabled}
-                  fadeInSpeed={bloomFadeInSpeed}
-                  fadeOutSpeed={bloomFadeOutSpeed}
-                />
-              )}
             </Canvas>
           </div>
 
-          {/* 렌더링 이미지들 */}
           {renderImages.map((src, index) => (
             <div key={index} className='relative w-full aspect-square bg-white'>
               <Image src={src} alt={`Render ${index + 1}`} fill className='object-contain' priority={index === 0} />

@@ -60,6 +60,7 @@ export interface BloomConfig {
   luminanceThreshold: number
   luminanceSmoothing: number
   radius: number
+  levels?: number
   motionBloom?: MotionBloomConfig
 }
 
@@ -74,6 +75,29 @@ export interface AOConfig {
   rangeThreshold: number
   rangeFalloff: number
   bias: number
+}
+
+export interface CausticsConfig {
+  enabled: boolean
+  color: string
+  ior: number
+  backfaceIor: number
+  worldRadius: number
+  intensity: number
+  lightSource: [number, number, number]
+}
+
+export interface ShadowsConfig {
+  frames: number
+  color: string
+  colorBlend: number
+  alphaTest: number
+  opacity: number
+  scale: number
+  lightAmount: number
+  lightRadius: number
+  lightAmbient: number
+  lightBias: number
 }
 
 export interface SceneConfig {
@@ -95,4 +119,6 @@ export interface SceneConfig {
   transform: TransformConfig
   bloom: BloomConfig
   ao?: AOConfig
+  caustics?: CausticsConfig
+  shadows?: ShadowsConfig
 }

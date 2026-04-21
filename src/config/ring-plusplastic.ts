@@ -10,7 +10,6 @@ export const ringPlusplasticConfig: SceneConfig = {
   cameraPosition: [6, 8, 6],
   orbitTarget: [0, 0, 0],
 
-  // Leva 기본값
   view: {
     fov: 30,
     backgroundColor: '#f3f3f3',
@@ -37,7 +36,7 @@ export const ringPlusplasticConfig: SceneConfig = {
   },
 
   prong: {
-    enabled: true, // 프롱 별도 재질 활성화 (로즈골드)
+    enabled: true,
     color: '#FCCDA7',
     brightness: 1.7,
     metalness: 1.0,
@@ -45,12 +44,13 @@ export const ringPlusplasticConfig: SceneConfig = {
     envMapIntensity: 1.0,
   },
 
+  // CodeSandbox zqrreo 값 — pavé에서 TIR black-out 방지 위해 bounces 낮게 유지
   diamond: {
     color: '#F0F0F0',
-    ior: 2.42,
-    bounces: 6,
+    ior: 2.75,
+    bounces: 3,           // GemAccumulator 없으므로 TIR guard도 없음 → 낮게
     fresnel: 1.0,
-    aberrationStrength: 0.003,
+    aberrationStrength: 0.004,  // chromatic 노이즈 완화
   },
 
   transform: {
@@ -59,29 +59,36 @@ export const ringPlusplasticConfig: SceneConfig = {
     rotationX: -90,
   },
 
+  // CodeSandbox 단일 Bloom 레시피
   bloom: {
     enabled: true,
-    intensity: 1.0,
+    intensity: 2.0,
     luminanceThreshold: 1.0,
     luminanceSmoothing: 1.0,
     radius: 0.95,
-    motionBloom: {
-      enabled: true,
-      fadeInSpeed: 8,
-      fadeOutSpeed: 3,
-    },
+    levels: 9,
   },
 
-  ao: {
-    enabled: true,
-    intensity: 3,
-    radius: 0.5,
-    samples: 30,
-    rings: 4,
-    distanceThreshold: 0.2,
-    distanceFalloff: 0.1,
-    rangeThreshold: 0.5,
-    rangeFalloff: 0.1,
-    bias: 0.01,
+  caustics: {
+    enabled: false,
+    color: '#ffffff',
+    ior: 1.8,
+    backfaceIor: 1.1,
+    worldRadius: 0.1,
+    intensity: 0.1,
+    lightSource: [5, 5, -10],
+  },
+
+  shadows: {
+    frames: 100,
+    color: '#000000',
+    colorBlend: 2,
+    alphaTest: 0.7,
+    opacity: 1,
+    scale: 12,
+    lightAmount: 8,
+    lightRadius: 10,
+    lightAmbient: 0.5,
+    lightBias: 0.001,
   },
 }
