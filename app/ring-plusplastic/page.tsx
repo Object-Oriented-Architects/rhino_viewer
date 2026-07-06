@@ -152,14 +152,16 @@ export default function Page() {
     })
 
   // Bloom 컨트롤 (CodeSandbox 단일 Bloom)
-  const { bloomEnabled, bloomIntensity, bloomThreshold, bloomLevels, bloomRadius, bloomMipmap } = useControls('Bloom', {
-    bloomEnabled: { value: config.bloom.enabled, label: 'enabled' },
-    bloomIntensity: { value: config.bloom.intensity, min: 0, max: 5, step: 0.01, label: 'intensity' },
-    bloomThreshold: { value: config.bloom.luminanceThreshold, min: 0, max: 2, step: 0.01, label: 'threshold' },
-    bloomLevels: { value: config.bloom.levels ?? 9, min: 1, max: 10, step: 1, label: 'levels' },
-    bloomRadius: { value: config.bloom.radius, min: 0, max: 2, step: 0.01, label: 'radius' },
-    bloomMipmap: { value: true, label: 'mipmapBlur' },
-  })
+  const { bloomEnabled, bloomIntensity, bloomThreshold, bloomSmoothing, bloomLevels, bloomRadius, bloomMipmap } =
+    useControls('Bloom', {
+      bloomEnabled: { value: config.bloom.enabled, label: 'enabled' },
+      bloomIntensity: { value: config.bloom.intensity, min: 0, max: 5, step: 0.01, label: 'intensity' },
+      bloomThreshold: { value: config.bloom.luminanceThreshold, min: 0, max: 2, step: 0.01, label: 'threshold' },
+      bloomSmoothing: { value: config.bloom.luminanceSmoothing, min: 0, max: 2, step: 0.01, label: 'smoothing' },
+      bloomLevels: { value: config.bloom.levels ?? 9, min: 1, max: 10, step: 1, label: 'levels' },
+      bloomRadius: { value: config.bloom.radius, min: 0, max: 2, step: 0.01, label: 'radius' },
+      bloomMipmap: { value: true, label: 'mipmapBlur' },
+    })
 
   // Caustics 컨트롤
   const causticsDefaults = config.caustics!
@@ -257,7 +259,7 @@ export default function Page() {
                       prongDefaults={config.prong}
                       diamondDefaults={config.diamond}
                       transformDefaults={config.transform}
-                      gemMaterial='physical'
+                      gemMaterial='refraction'
                       onLoadComplete={handleModelLoadComplete}
                     />
                   </Caustics>
@@ -270,7 +272,7 @@ export default function Page() {
                     prongDefaults={config.prong}
                     diamondDefaults={config.diamond}
                     transformDefaults={config.transform}
-                    gemMaterial='physical'
+                    gemMaterial='refraction'
                     onLoadComplete={handleModelLoadComplete}
                   />
                 )}
@@ -280,6 +282,7 @@ export default function Page() {
                 <Bloom
                   intensity={bloomEnabled ? bloomIntensity : 0}
                   luminanceThreshold={bloomThreshold}
+                  luminanceSmoothing={bloomSmoothing}
                   levels={bloomLevels}
                   radius={bloomRadius}
                   mipmapBlur={bloomMipmap}

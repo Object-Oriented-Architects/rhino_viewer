@@ -7,6 +7,19 @@ import * as THREE from 'three'
 import { useMemo, useRef, useState, useEffect } from 'react'
 import { useControls } from 'leva'
 
+// MeshRefractionMaterial의 TIR ray tracing이 특정 각도에서 NaN/Inf 픽셀을 만들고,
+// 이 픽셀이 Bloom(mipmapBlur) 다운샘플 체인을 오염시켜 화면 전체가 검게 깜빡이는 문제 방지.
+// 셰이더 최종 출력에서 NaN/Inf를 제거하고 half-float 안전 범위로 clamp.
+const guardRefractionShader = (shader: { fragmentShader: string }) => {
+  shader.fragmentShader = shader.fragmentShader.replace(
+    'gl_FragColor = vec4(mix(diffuseColor.rgb, vec3(1.0), nFresnel), diffuseColor.a);',
+    /* glsl */ `
+    vec3 refractionOut = mix(diffuseColor.rgb, vec3(1.0), nFresnel);
+    if (any(isnan(refractionOut)) || any(isinf(refractionOut))) refractionOut = vec3(1.0);
+    gl_FragColor = vec4(min(refractionOut, vec3(48.0)), diffuseColor.a);`,
+  )
+}
+
 type MaterialConfig = {
   color?: string
   colorMap?: string
@@ -300,6 +313,10 @@ interface DiamondDefaults {
   dispersion?: number
   iridescence?: number
   iridescenceIOR?: number
+  attenuationColor?: string
+  attenuationDistance?: number
+  envMapIntensity?: number
+  flatShading?: boolean
 }
 
 interface TransformDefaults {
@@ -430,6 +447,10 @@ export function Ring({
     dispersion: diamondDispersion = 0.05,
     iridescence: diamondIridescence = 0.3,
     iridescenceIOR: diamondIridescenceIOR = 2.4,
+    attenuationColor: diamondAttenuationColor = '#ffffff',
+    attenuationDistance: diamondAttenuationDistance = 1.0,
+    envMapIntensity: diamondEnvMapIntensity = 1.0,
+    flatShading: diamondFlatShading = false,
   } = diamondDefaults
 
   // Transform 기본값 추출
@@ -475,6 +496,10 @@ export function Ring({
     dispersion: { value: diamondDispersion, min: 0, max: 0.5, step: 0.001 },
     iridescence: { value: diamondIridescence, min: 0, max: 1, step: 0.01 },
     iridescenceIOR: { value: diamondIridescenceIOR, min: 1, max: 3, step: 0.01 },
+    attenuationColor: { value: diamondAttenuationColor },
+    attenuationDistance: { value: diamondAttenuationDistance, min: 0.01, max: 10, step: 0.01 },
+    envMapIntensity: { value: diamondEnvMapIntensity, min: 0, max: 5, step: 0.01 },
+    flatShading: { value: diamondFlatShading },
   })
 
   // HDR 환경맵을 CubeTexture로 변환 (CubeCamera 없이 순수 환경만 사용)
@@ -601,46 +626,6 @@ export function Ring({
     const center = new THREE.Vector3()
     boundingBox.getCenter(center)
 
-    // [진단 임시] gem geometry 노멀 상태: indexed 여부 + vertex normal vs face normal 평균 편차
-    if (gems.length > 0) {
-      const g = gems[0].geometry
-      const pos = g.attributes.position
-      const nrm = g.attributes.normal
-      const idx = g.index
-      let sumDeg = 0
-      let count = 0
-      const triCount = idx ? idx.count / 3 : pos.count / 3
-      const sampleN = Math.min(200, triCount)
-      const pA = new THREE.Vector3()
-      const pB = new THREE.Vector3()
-      const pC = new THREE.Vector3()
-      const nA = new THREE.Vector3()
-      const face = new THREE.Vector3()
-      const cb = new THREE.Vector3()
-      const ab = new THREE.Vector3()
-      for (let s = 0; s < sampleN; s++) {
-        const t = Math.floor((s / sampleN) * triCount)
-        const i0 = idx ? idx.getX(t * 3) : t * 3
-        const i1 = idx ? idx.getX(t * 3 + 1) : t * 3 + 1
-        const i2 = idx ? idx.getX(t * 3 + 2) : t * 3 + 2
-        pA.fromBufferAttribute(pos, i0)
-        pB.fromBufferAttribute(pos, i1)
-        pC.fromBufferAttribute(pos, i2)
-        cb.subVectors(pC, pB)
-        ab.subVectors(pA, pB)
-        face.crossVectors(cb, ab).normalize()
-        for (const i of [i0, i1, i2]) {
-          nA.fromBufferAttribute(nrm, i).normalize()
-          sumDeg += THREE.MathUtils.radToDeg(Math.acos(THREE.MathUtils.clamp(nA.dot(face), -1, 1)))
-          count++
-        }
-      }
-      console.log(
-        `[gem-normal-diag] gems=${gems.length} indexed=${!!idx} verts=${pos.count} tris=${triCount} ` +
-          `avgDeviation=${(sumDeg / count).toFixed(2)}deg (0≈flat/faceted, >10≈smooth/welded)`,
-      )
-    }
-
     return {
       metalMeshes: metals,
       prongMeshes: prongs,
@@ -719,6 +704,8 @@ export function Ring({
               >
                 {gemMaterial === 'physical' ? (
                   <meshPhysicalMaterial
+                    // flatShading 변경은 셰이더 리컴파일이 필요 — key로 재생성 강제
+                    key={`gem-physical-${gemControls.flatShading}`}
                     color={gemControls.color}
                     ior={gemControls.ior}
                     transmission={gemControls.transmission}
@@ -727,7 +714,10 @@ export function Ring({
                     dispersion={gemControls.dispersion}
                     iridescence={gemControls.iridescence}
                     iridescenceIOR={gemControls.iridescenceIOR}
-                    envMapIntensity={1.0}
+                    attenuationColor={gemControls.attenuationColor}
+                    attenuationDistance={gemControls.attenuationDistance}
+                    envMapIntensity={gemControls.envMapIntensity}
+                    flatShading={gemControls.flatShading}
                     toneMapped={false}
                   />
                 ) : (
@@ -740,6 +730,7 @@ export function Ring({
                     aberrationStrength={gemControls['aberration (×1000)'] / 1000}
                     fastChroma={false}
                     toneMapped={false}
+                    onBeforeCompile={guardRefractionShader}
                   />
                 )}
               </mesh>

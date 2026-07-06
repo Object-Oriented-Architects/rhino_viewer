@@ -44,24 +44,28 @@ export const ringPlusplasticConfig: SceneConfig = {
     envMapIntensity: 1.0,
   },
 
-  // MeshPhysicalMaterial 기반 — pavé 자글거림 근본 제거 (ray tracing 없음)
-  // Refraction 필드는 legacy 호환용으로 남김 (gemMaterial='refraction' fallback 시 사용)
+  // 기본: MeshRefractionMaterial (gemMaterial='refraction') — TIR ray tracing으로 다이아몬드 look 확보.
+  // 특정 각도에서 셰이더 NaN → bloom mipmap 오염 → 화면 전체 검은 깜빡임 문제는
+  // Models.tsx의 guardRefractionShader(NaN/Inf 가드)로 차단됨.
+  // Physical 필드는 gemMaterial='physical' 대체 경로용 (ray tracing 없음, 유리 느낌이라 기본 미사용).
   diamond: {
     color: '#ffffff',
     ior: 2.4,
-    // Refraction (unused when gemMaterial='physical')
+    // Refraction
     bounces: 3,
     fresnel: 1.0,
     aberrationStrength: 0.004,
-    // Physical material
-    transmission: 1.0,
-    thickness: 0.5,
+    // Physical (fallback 전용)
+    transmission: 0.85,
+    thickness: 2.0,
     roughness: 0.0,
-    dispersion: 0.05,
+    dispersion: 0.15,
     iridescence: 0.3,
     iridescenceIOR: 2.4,
     attenuationColor: '#ffffff',
     attenuationDistance: 1.0,
+    envMapIntensity: 5.0,
+    flatShading: false,
   },
 
   transform: {

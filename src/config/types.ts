@@ -50,6 +50,8 @@ export interface DiamondConfig {
   iridescenceIOR?: number
   attenuationColor?: string
   attenuationDistance?: number
+  envMapIntensity?: number
+  flatShading?: boolean
 }
 
 export interface TransformConfig {
