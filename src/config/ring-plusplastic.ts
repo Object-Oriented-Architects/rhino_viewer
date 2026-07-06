@@ -55,19 +55,21 @@ export const ringPlusplasticConfig: SceneConfig = {
   // Models.tsx의 guardRefractionShader(NaN/Inf 가드)로 차단됨.
   // Physical 필드는 gemMaterial='physical' 대체 경로용 (ray tracing 없음, 유리 느낌이라 기본 미사용).
   diamond: {
-    color: '#ffffff',
+    // 주의: gem cube 텍스처는 HDR 원값 그대로라 environmentIntensity(0.45)를 받지 않음 —
+    // 금속보다 2배 밝은 환경을 봄. color를 회색으로 낮춰 facet 다크를 복원 (HDR 하이라이트는
+    // 1.0 이상이라 여전히 순백 → 대비 증가). 더 하얗게 = #E8E8E8, 더 진하게 = #B8B8B8
+    color: '#D0D0D0',
     ior: 2.4,
     // Refraction
     bounces: 3,
-    // fresnel(흰 림 혼합): 높이면 grazing 각 스톤이 하얗게 뜨고(에지 pavé ↑) 센터 스톤 facet이 씻겨나감.
-    // 0.65 = 참고 렌더의 facet 대비와 에지 스톤 밝기의 절충값
-    fresnel: 0.65,
+    // fresnel(흰 림 혼합): 높이면 스톤이 전반적으로 하얗게 떠서 facet 대비가 씻겨나감
+    fresnel: 0.5,
     aberrationStrength: 0.004,
-    // correctMips=false: mip 선택이 굴절 광선의 픽셀 간 변화량 기준 →
-    // 광선이 요동치는 작은 pavé는 자동으로 흐린 mip(자글거림 ↓), 센터 스톤은 선명 유지.
-    // envMipBias는 그 위에 얹는 전역 배율 (1=적응형만, 키우면 전체적으로 더 차분+흐림)
-    envMipBias: 1.2,
-    correctMips: false,
+    // correctMips=true: 선명한 env 샘플링 — facet 다크/화이트 대비 유지.
+    // (false=적응형 블러는 자글거림을 줄이지만 스톤을 뿌옇게 만듦 — TemporalSmooth 도입 후
+    // 자글거림은 시간축에서 잡으므로 공간 블러는 끔)
+    envMipBias: 1.0,
+    correctMips: true,
     // Physical (fallback 전용)
     transmission: 0.85,
     thickness: 2.0,
@@ -94,14 +96,14 @@ export const ringPlusplasticConfig: SceneConfig = {
     rotationX: -90,
   },
 
-  // CodeSandbox 단일 Bloom 레시피 — intensity는 참고 렌더의 절제된 글로우에 맞춰 하향
+  // 타이트한 Bloom — 넓은 글로우(levels 9)는 스톤 facet 다크까지 들어올려 뿌옇게 만듦
   bloom: {
     enabled: true,
-    intensity: 1.2,
+    intensity: 0.7,
     luminanceThreshold: 1.0,
     luminanceSmoothing: 1.0,
-    radius: 0.95,
-    levels: 9,
+    radius: 0.6,
+    levels: 5,
   },
 
   caustics: {
