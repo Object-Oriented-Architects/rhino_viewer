@@ -37,9 +37,19 @@ export interface ProngConfig {
 export interface DiamondConfig {
   color: string
   ior: number
+  // MeshRefractionMaterial (drei) 전용 — /ring 등 legacy 페이지에서 사용
   bounces: number
   fresnel: number
   aberrationStrength: number
+  // MeshPhysicalMaterial 전용 — /ring-plusplastic에서 사용 (optional)
+  transmission?: number
+  thickness?: number
+  roughness?: number
+  dispersion?: number
+  iridescence?: number
+  iridescenceIOR?: number
+  attenuationColor?: string
+  attenuationDistance?: number
 }
 
 export interface TransformConfig {

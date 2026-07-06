@@ -293,9 +293,17 @@ interface MetalDefaults {
 interface DiamondDefaults {
   color?: string
   ior?: number
+  // MeshRefractionMaterial (drei)
   bounces?: number
   fresnel?: number
   aberrationStrength?: number
+  // MeshPhysicalMaterial
+  transmission?: number
+  thickness?: number
+  roughness?: number
+  dispersion?: number
+  iridescence?: number
+  iridescenceIOR?: number
 }
 
 interface TransformDefaults {
@@ -322,6 +330,8 @@ interface RingProps {
   prongDefaults?: ProngDefaults
   diamondDefaults?: DiamondDefaults
   transformDefaults?: TransformDefaults
+  /** gem 렌더링 방식. 'refraction'=drei MeshRefractionMaterial(ray tracing, TIR 발생 가능), 'physical'=three.js MeshPhysicalMaterial(ray tracing 없음, pavé 자글거림 없음) */
+  gemMaterial?: 'refraction' | 'physical'
   [key: string]: any
 }
 
@@ -334,6 +344,7 @@ export function Ring({
   prongDefaults = {},
   diamondDefaults = {},
   transformDefaults = {},
+  gemMaterial = 'refraction',
   ...props
 }: RingProps) {
   // 씬의 환경맵 사용 (Common에서 설정한 HDR - Leva로 제어 가능)
@@ -422,6 +433,12 @@ export function Ring({
     bounces: diamondBounces = 4,
     fresnel: diamondFresnel = 0.1,
     aberrationStrength: diamondAberration = 0.044,
+    transmission: diamondTransmission = 1.0,
+    thickness: diamondThickness = 0.5,
+    roughness: diamondRoughness = 0.0,
+    dispersion: diamondDispersion = 0.05,
+    iridescence: diamondIridescence = 0.3,
+    iridescenceIOR: diamondIridescenceIOR = 2.4,
   } = diamondDefaults
 
   // Transform 기본값 추출
@@ -451,14 +468,22 @@ export function Ring({
     envMapIntensity: { value: prongEnvMapIntensity, min: 0, max: 2, step: 0.01 },
   })
 
-  // Diamond 컨트롤
+  // Diamond 컨트롤 — refraction / physical 양쪽 필드 동시 노출, gemMaterial에 따라 실제 반영만 분기
   const gemControls = useControls('Diamond', {
     color: { value: diamondColor },
-    ior: { value: diamondIor, min: 1.5, max: 3, step: 0.01 },
+    ior: { value: diamondIor, min: 1.0, max: 3, step: 0.01 },
+    // --- Refraction (gemMaterial='refraction'에서만 반영) ---
     bounces: { value: diamondBounces, min: 1, max: 10, step: 1 },
     fresnel: { value: diamondFresnel, min: 0, max: 100, step: 0.1 },
     'aberration (×1000)': { value: diamondAberration * 1000, min: 1, max: 100, step: 1 },
     envMapResolution: { value: 512, options: { '128': 128, '256': 256, '512': 512, '1024': 1024 } },
+    // --- Physical (gemMaterial='physical'에서만 반영) ---
+    transmission: { value: diamondTransmission, min: 0, max: 1, step: 0.01 },
+    thickness: { value: diamondThickness, min: 0, max: 5, step: 0.01 },
+    roughness: { value: diamondRoughness, min: 0, max: 1, step: 0.01 },
+    dispersion: { value: diamondDispersion, min: 0, max: 0.5, step: 0.001 },
+    iridescence: { value: diamondIridescence, min: 0, max: 1, step: 0.01 },
+    iridescenceIOR: { value: diamondIridescenceIOR, min: 1, max: 3, step: 0.01 },
   })
 
   // HDR 환경맵을 CubeTexture로 변환 (CubeCamera 없이 순수 환경만 사용)
@@ -644,8 +669,8 @@ export function Ring({
             />
           ))}
 
-          {/* Gem 메시들 - 순수 HDR CubeTexture로 굴절 */}
-          {cubeTexture &&
+          {/* Gem 메시들 */}
+          {(gemMaterial === 'physical' || cubeTexture) &&
             gemMeshes.map((meshInfo, index) => (
               <mesh
                 key={`gem-${index}`}
@@ -660,16 +685,31 @@ export function Ring({
                   }
                 }}
               >
-                <MeshRefractionMaterial
-                  envMap={cubeTexture}
-                  color={gemControls.color}
-                  ior={gemControls.ior}
-                  bounces={gemControls.bounces}
-                  fresnel={gemControls.fresnel}
-                  aberrationStrength={gemControls['aberration (×1000)'] / 1000}
-                  fastChroma={false}
-                  toneMapped={false}
-                />
+                {gemMaterial === 'physical' ? (
+                  <meshPhysicalMaterial
+                    color={gemControls.color}
+                    ior={gemControls.ior}
+                    transmission={gemControls.transmission}
+                    thickness={gemControls.thickness}
+                    roughness={gemControls.roughness}
+                    dispersion={gemControls.dispersion}
+                    iridescence={gemControls.iridescence}
+                    iridescenceIOR={gemControls.iridescenceIOR}
+                    envMapIntensity={1.0}
+                    toneMapped={false}
+                  />
+                ) : (
+                  <MeshRefractionMaterial
+                    envMap={cubeTexture!}
+                    color={gemControls.color}
+                    ior={gemControls.ior}
+                    bounces={gemControls.bounces}
+                    fresnel={gemControls.fresnel}
+                    aberrationStrength={gemControls['aberration (×1000)'] / 1000}
+                    fastChroma={false}
+                    toneMapped={false}
+                  />
+                )}
               </mesh>
             ))}
         </group>

@@ -1,61 +1,15 @@
 'use client'
 
 import dynamic from 'next/dynamic'
-import { Suspense, useState, useCallback, useMemo, useEffect, useRef, useContext } from 'react'
+import { Suspense, useState, useCallback, useMemo, useEffect, useRef } from 'react'
 import Image from 'next/image'
-import { Leva, useControls, button, levaStore } from 'leva'
-import { Canvas, useLoader, useThree } from '@react-three/fiber'
+import { Leva, useControls, button } from 'leva'
+import { Canvas, useLoader } from '@react-three/fiber'
 import { OrbitControls, PerspectiveCamera, Environment, Caustics } from '@react-three/drei'
 import { RGBELoader } from 'three/examples/jsm/loaders/RGBELoader.js'
-import { EffectComposer, SMAA, Bloom, EffectComposerContext } from '@react-three/postprocessing'
+import { EffectComposer, SMAA, Bloom } from '@react-three/postprocessing'
 import * as THREE from 'three'
 import { ringPlusplasticConfig } from '@/config'
-import { GemAccumulator } from '@/components/canvas/GemAccumulator'
-
-// EffectComposer의 모든 패스에서 gem 메시를 제외 (gem은 GemAccumulator가 별도 처리)
-function GemExcluder() {
-  const { composer } = useContext(EffectComposerContext)
-  const { scene } = useThree()
-
-  useEffect(() => {
-    if (!composer) return
-    const passes = (composer as any).passes as any[]
-    const overrides = new Map<any, Function>()
-
-    for (const pass of passes) {
-      const original = pass.render.bind(pass)
-      overrides.set(pass, original)
-
-      pass.render = (
-        renderer: THREE.WebGLRenderer,
-        inputBuffer: any,
-        outputBuffer: any,
-        deltaTime?: number,
-        stencilTest?: boolean,
-      ) => {
-        const hidden: THREE.Object3D[] = []
-        scene.traverse((obj) => {
-          if (obj instanceof THREE.Mesh && obj.userData.isGem && obj.visible) {
-            obj.visible = false
-            hidden.push(obj)
-          }
-        })
-        original(renderer, inputBuffer, outputBuffer, deltaTime, stencilTest)
-        hidden.forEach((m) => {
-          m.visible = true
-        })
-      }
-    }
-
-    return () => {
-      for (const [pass, original] of overrides) {
-        pass.render = original
-      }
-    }
-  }, [composer, scene])
-
-  return null
-}
 
 // blob URL은 확장자가 없어서 drei의 Environment가 로더를 판별 못 함
 // RGBELoader로 직접 로드하여 map prop으로 전달
@@ -147,11 +101,6 @@ export default function Page() {
     }
   }, [])
 
-  // 디버그: levaStore를 window에 노출 (측정/튜닝용)
-  useEffect(() => {
-    if (typeof window !== 'undefined') (window as any).__leva = levaStore
-  }, [])
-
   // File 컨트롤
   const [fileValues, setFileControls] = useControls('File', () => ({
     '3dm 업로드': button(() => modelInputRef.current?.click()),
@@ -202,16 +151,6 @@ export default function Page() {
       directionalLightIntensity: { value: config.light.directionalLightIntensity || 0.3, min: 0, max: 2, step: 0.01 },
     })
 
-  // Accumulation 컨트롤 — TIR black-out guard + noise 수렴
-  // blendFactor 낮을수록 자글거림 ↓ (motion blur ↑ 트레이드오프)
-  // maxFrames 높을수록 정지 시 더 깊게 수렴 (sparkle은 약간 둔해짐)
-  const { accumEnabled, accumBlendFactor, accumMaxFrames, accumJitter } = useControls('Accumulation', {
-    accumEnabled: { value: true, label: 'enabled' },
-    accumBlendFactor: { value: 0.1, min: 0.05, max: 1.0, step: 0.05, label: 'blendFactor (moving)' },
-    accumMaxFrames: { value: 128, min: 1, max: 256, step: 1, label: 'maxFrames (still)' },
-    accumJitter: { value: true, label: 'sub-pixel jitter' },
-  })
-
   // Bloom 컨트롤 (CodeSandbox 단일 Bloom)
   const { bloomEnabled, bloomIntensity, bloomThreshold, bloomLevels, bloomRadius, bloomMipmap } = useControls('Bloom', {
     bloomEnabled: { value: config.bloom.enabled, label: 'enabled' },
@@ -247,15 +186,6 @@ export default function Page() {
     causticsLightY: { value: causticsDefaults.lightSource[1], min: -20, max: 20, step: 0.5, label: 'lightSrc Y' },
     causticsLightZ: { value: causticsDefaults.lightSource[2], min: -20, max: 20, step: 0.5, label: 'lightSrc Z' },
   })
-
-  // Accumulation 리셋 키 — 파라미터 변경 시 버퍼 무효화
-  const resetCounter = useRef(0)
-  const resetKey = useMemo(() => ++resetCounter.current, [
-    modelFile, hdrFile, fov, backgroundColor,
-    environmentIntensity, envRotX, envRotY, envRotZ,
-    ambientLightIntensity, directionalLightIntensity,
-    accumBlendFactor, accumMaxFrames, accumJitter,
-  ])
 
   // 환경맵 회전
   const envRotation = useMemo(
@@ -327,6 +257,7 @@ export default function Page() {
                       prongDefaults={config.prong}
                       diamondDefaults={config.diamond}
                       transformDefaults={config.transform}
+                      gemMaterial='physical'
                       onLoadComplete={handleModelLoadComplete}
                     />
                   </Caustics>
@@ -339,12 +270,12 @@ export default function Page() {
                     prongDefaults={config.prong}
                     diamondDefaults={config.diamond}
                     transformDefaults={config.transform}
+                    gemMaterial='physical'
                     onLoadComplete={handleModelLoadComplete}
                   />
                 )}
               </Suspense>
               <EffectComposer multisampling={4} enableNormalPass={false}>
-                <GemExcluder />
                 <SMAA />
                 <Bloom
                   intensity={bloomEnabled ? bloomIntensity : 0}
@@ -354,13 +285,6 @@ export default function Page() {
                   mipmapBlur={bloomMipmap}
                 />
               </EffectComposer>
-              <GemAccumulator
-                enabled={accumEnabled}
-                movingBlendFactor={accumBlendFactor}
-                maxAccumulationFrames={accumMaxFrames}
-                jitterEnabled={accumJitter}
-                resetKey={resetKey}
-              />
             </Canvas>
           </div>
 

@@ -44,13 +44,24 @@ export const ringPlusplasticConfig: SceneConfig = {
     envMapIntensity: 1.0,
   },
 
-  // CodeSandbox zqrreo 값 — pavé에서 TIR black-out 방지 위해 bounces 낮게 유지
+  // MeshPhysicalMaterial 기반 — pavé 자글거림 근본 제거 (ray tracing 없음)
+  // Refraction 필드는 legacy 호환용으로 남김 (gemMaterial='refraction' fallback 시 사용)
   diamond: {
-    color: '#F0F0F0',
-    ior: 2.75,
-    bounces: 3,           // GemAccumulator 없으므로 TIR guard도 없음 → 낮게
+    color: '#ffffff',
+    ior: 2.4,
+    // Refraction (unused when gemMaterial='physical')
+    bounces: 3,
     fresnel: 1.0,
-    aberrationStrength: 0.004,  // chromatic 노이즈 완화
+    aberrationStrength: 0.004,
+    // Physical material
+    transmission: 1.0,
+    thickness: 0.5,
+    roughness: 0.0,
+    dispersion: 0.05,
+    iridescence: 0.3,
+    iridescenceIOR: 2.4,
+    attenuationColor: '#ffffff',
+    attenuationDistance: 1.0,
   },
 
   transform: {
