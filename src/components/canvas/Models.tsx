@@ -320,6 +320,7 @@ interface DiamondDefaults {
   fresnel?: number
   aberrationStrength?: number
   envMipBias?: number
+  correctMips?: boolean
   // MeshPhysicalMaterial
   transmission?: number
   thickness?: number
@@ -456,6 +457,7 @@ export function Ring({
     fresnel: diamondFresnel = 0.1,
     aberrationStrength: diamondAberration = 0.044,
     envMipBias: diamondEnvMipBias = 1.0,
+    correctMips: diamondCorrectMips = true,
     transmission: diamondTransmission = 1.0,
     thickness: diamondThickness = 0.5,
     roughness: diamondRoughness = 0.0,
@@ -505,6 +507,9 @@ export function Ring({
     'aberration (×1000)': { value: diamondAberration * 1000, min: 1, max: 100, step: 1 },
     envMapResolution: { value: 512, options: { '128': 128, '256': 256, '512': 512, '1024': 1024 } },
     envMipBias: { value: diamondEnvMipBias, min: 1, max: 8, step: 0.1, label: 'aliasBlur (mipBias)' },
+    // false면 mip 선택이 굴절 광선의 픽셀 간 변화량 기준이 됨 — 광선이 요동치는
+    // 작은 pavé는 자동으로 흐린 mip(자글거림 ↓), 안정적인 센터 스톤은 선명한 mip
+    correctMips: { value: diamondCorrectMips, label: 'correctMips (sharp)' },
     // --- Physical (gemMaterial='physical'에서만 반영) ---
     transmission: { value: diamondTransmission, min: 0, max: 1, step: 0.01 },
     thickness: { value: diamondThickness, min: 0, max: 5, step: 0.01 },
@@ -763,6 +768,8 @@ export function Ring({
                     fresnel={gemControls.fresnel}
                     aberrationStrength={gemControls['aberration (×1000)'] / 1000}
                     fastChroma={false}
+                    // drei 타입 정의에 correctMips prop이 누락돼 있어 캐스팅 (런타임은 uniform으로 동작)
+                    {...({ correctMips: gemControls.correctMips } as Record<string, unknown>)}
                     toneMapped={false}
                     onBeforeCompile={guardRefractionShader}
                   />

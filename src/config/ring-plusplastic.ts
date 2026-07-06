@@ -55,7 +55,11 @@ export const ringPlusplasticConfig: SceneConfig = {
     bounces: 3,
     fresnel: 1.0,
     aberrationStrength: 0.004,
-    envMipBias: 2.0,
+    // correctMips=false: mip 선택이 굴절 광선의 픽셀 간 변화량 기준 →
+    // 광선이 요동치는 작은 pavé는 자동으로 흐린 mip(자글거림 ↓), 센터 스톤은 선명 유지.
+    // envMipBias는 그 위에 얹는 전역 배율 (1=적응형만, 키우면 전체적으로 더 차분+흐림)
+    envMipBias: 1.5,
+    correctMips: false,
     // Physical (fallback 전용)
     transmission: 0.85,
     thickness: 2.0,
