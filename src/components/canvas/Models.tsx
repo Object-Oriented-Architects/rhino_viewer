@@ -1,15 +1,11 @@
 'use client'
 
-import { ShadowAlpha, useGLTF, MeshRefractionMaterial, useEnvironment } from '@react-three/drei'
+import { MeshRefractionMaterial } from '@react-three/drei'
 import { useLoader, useThree } from '@react-three/fiber'
-import { useBloomContext } from './View'
 import { Rhino3dmLoader } from 'three/examples/jsm/loaders/3DMLoader.js'
-import { useFrame } from '@react-three/fiber'
 import * as THREE from 'three'
 import { useMemo, useRef, useState, useEffect } from 'react'
-import { Line, useCursor, MeshDistortMaterial } from '@react-three/drei'
-import { useRouter } from 'next/navigation'
-import { folder, useControls } from 'leva'
+import { useControls } from 'leva'
 
 type MaterialConfig = {
   color?: string
@@ -323,7 +319,6 @@ interface ProngDefaults {
 
 interface RingProps {
   onLoadComplete?: () => void
-  onControlsChange?: () => void
   modelPath?: string
   shadowTexturePath?: string
   metalDefaults?: MetalDefaults
@@ -337,7 +332,6 @@ interface RingProps {
 
 export function Ring({
   onLoadComplete,
-  onControlsChange,
   modelPath = '/model/ring-260203/Ring_Mesh_0203.3dm',
   shadowTexturePath = '/model/ring-260203/shadow.jpg',
   metalDefaults = {},
@@ -349,9 +343,6 @@ export function Ring({
 }: RingProps) {
   // 씬의 환경맵 사용 (Common에서 설정한 HDR - Leva로 제어 가능)
   const { scene, gl } = useThree()
-
-  // SelectiveBloom context
-  const bloomContext = useBloomContext()
 
   // 3dm 모델 로드 - geometry만 사용
   const modelObj = useLoader(Rhino3dmLoader, modelPath, (loader) => {
@@ -487,12 +478,23 @@ export function Ring({
   })
 
   // HDR 환경맵을 CubeTexture로 변환 (CubeCamera 없이 순수 환경만 사용)
-  const cubeTexture = useMemo(() => {
-    if (!scene.environment) return null
+  // refraction 모드에서만 필요 — physical 모드는 씬 환경맵을 그대로 사용
+  // useEffect에서 생성/해제를 함께 처리 (StrictMode 이중 실행에도 안전, 교체 시 이전 RT dispose)
+  const [cubeRenderTarget, setCubeRenderTarget] = useState<THREE.WebGLCubeRenderTarget | null>(null)
+  useEffect(() => {
+    if (gemMaterial !== 'refraction' || !scene.environment) {
+      setCubeRenderTarget(null)
+      return
+    }
     const cubeRT = new THREE.WebGLCubeRenderTarget(gemControls.envMapResolution)
     cubeRT.fromEquirectangularTexture(gl, scene.environment)
-    return cubeRT.texture
-  }, [scene.environment, gl, gemControls.envMapResolution])
+    setCubeRenderTarget(cubeRT)
+    return () => {
+      cubeRT.dispose()
+    }
+  }, [gemMaterial, scene.environment, gl, gemControls.envMapResolution])
+
+  const cubeTexture = cubeRenderTarget?.texture ?? null
 
   // Shadow 컨트롤
   const shadowControls = useControls('Shadow', {
@@ -510,11 +512,6 @@ export function Ring({
   useEffect(() => {
     shadowMaterial.uniforms.shadowOpacity.value = shadowControls.opacity
   }, [shadowControls.opacity, shadowMaterial])
-
-  // Leva 컨트롤 변경 시 accumulation 초기화 알림
-  useEffect(() => {
-    onControlsChange?.()
-  }, [metalControls, prongControls, gemControls, transformControls, onControlsChange])
 
   // Metal 재질 생성 (PBR - 씬 환경맵 자동 사용)
   // toneMapped: true로 bloom에서 제외 (1.0 이하로 클램프)
@@ -604,6 +601,46 @@ export function Ring({
     const center = new THREE.Vector3()
     boundingBox.getCenter(center)
 
+    // [진단 임시] gem geometry 노멀 상태: indexed 여부 + vertex normal vs face normal 평균 편차
+    if (gems.length > 0) {
+      const g = gems[0].geometry
+      const pos = g.attributes.position
+      const nrm = g.attributes.normal
+      const idx = g.index
+      let sumDeg = 0
+      let count = 0
+      const triCount = idx ? idx.count / 3 : pos.count / 3
+      const sampleN = Math.min(200, triCount)
+      const pA = new THREE.Vector3()
+      const pB = new THREE.Vector3()
+      const pC = new THREE.Vector3()
+      const nA = new THREE.Vector3()
+      const face = new THREE.Vector3()
+      const cb = new THREE.Vector3()
+      const ab = new THREE.Vector3()
+      for (let s = 0; s < sampleN; s++) {
+        const t = Math.floor((s / sampleN) * triCount)
+        const i0 = idx ? idx.getX(t * 3) : t * 3
+        const i1 = idx ? idx.getX(t * 3 + 1) : t * 3 + 1
+        const i2 = idx ? idx.getX(t * 3 + 2) : t * 3 + 2
+        pA.fromBufferAttribute(pos, i0)
+        pB.fromBufferAttribute(pos, i1)
+        pC.fromBufferAttribute(pos, i2)
+        cb.subVectors(pC, pB)
+        ab.subVectors(pA, pB)
+        face.crossVectors(cb, ab).normalize()
+        for (const i of [i0, i1, i2]) {
+          nA.fromBufferAttribute(nrm, i).normalize()
+          sumDeg += THREE.MathUtils.radToDeg(Math.acos(THREE.MathUtils.clamp(nA.dot(face), -1, 1)))
+          count++
+        }
+      }
+      console.log(
+        `[gem-normal-diag] gems=${gems.length} indexed=${!!idx} verts=${pos.count} tris=${triCount} ` +
+          `avgDeviation=${(sumDeg / count).toFixed(2)}deg (0≈flat/faceted, >10≈smooth/welded)`,
+      )
+    }
+
     return {
       metalMeshes: metals,
       prongMeshes: prongs,
@@ -679,11 +716,6 @@ export function Ring({
                 rotation={meshInfo.rotation}
                 scale={meshInfo.scale}
                 userData={{ isGem: true }}
-                ref={(mesh) => {
-                  if (mesh && bloomContext) {
-                    bloomContext.registerMesh(mesh)
-                  }
-                }}
               >
                 {gemMaterial === 'physical' ? (
                   <meshPhysicalMaterial
