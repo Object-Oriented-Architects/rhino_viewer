@@ -7,17 +7,30 @@ import * as THREE from 'three'
 import { useMemo, useRef, useState, useEffect } from 'react'
 import { useControls } from 'leva'
 
-// MeshRefractionMaterial의 TIR ray tracing이 특정 각도에서 NaN/Inf 픽셀을 만들고,
-// 이 픽셀이 Bloom(mipmapBlur) 다운샘플 체인을 오염시켜 화면 전체가 검게 깜빡이는 문제 방지.
-// 셰이더 최종 출력에서 NaN/Inf를 제거하고 half-float 안전 범위로 clamp.
-const guardRefractionShader = (shader: { fragmentShader: string }) => {
-  shader.fragmentShader = shader.fragmentShader.replace(
-    'gl_FragColor = vec4(mix(diffuseColor.rgb, vec3(1.0), nFresnel), diffuseColor.a);',
-    /* glsl */ `
+// envMap 샘플링 mip bias — 1이면 원래대로, 키울수록 더 흐린 mip을 강제 샘플링해
+// pavé 소석의 specular aliasing(자글거림)을 누른다 (트레이드오프: 스파클 선명도).
+// Ring이 Leva 값으로 갱신하는 공유 uniform 홀더 (페이지당 Ring 1개 전제).
+const gemEnvMipBias = { value: 1.0 }
+
+// MeshRefractionMaterial 셰이더 패치 두 가지:
+// 1) TIR ray tracing이 특정 각도에서 만드는 NaN/Inf 픽셀이 Bloom(mipmapBlur)
+//    다운샘플 체인을 오염시켜 화면 전체가 검게 깜빡이는 문제 방지 — 출력에서 제거/clamp.
+// 2) textureGrad의 gradient를 envMipBias배로 키워 작은 스톤의 자글거림 완화.
+const guardRefractionShader = (shader: { fragmentShader: string; uniforms: Record<string, { value: unknown }> }) => {
+  shader.uniforms.envMipBias = gemEnvMipBias
+  shader.fragmentShader = shader.fragmentShader
+    .replace('uniform bool correctMips;', 'uniform bool correctMips;\n  uniform float envMipBias;')
+    .replace(
+      'return textureGrad(envMap, rayDirection, dFdx(correctMips ? directionCamPerfect: rayDirection), dFdy(correctMips ? directionCamPerfect: rayDirection));',
+      'return textureGrad(envMap, rayDirection, dFdx(correctMips ? directionCamPerfect: rayDirection) * envMipBias, dFdy(correctMips ? directionCamPerfect: rayDirection) * envMipBias);',
+    )
+    .replace(
+      'gl_FragColor = vec4(mix(diffuseColor.rgb, vec3(1.0), nFresnel), diffuseColor.a);',
+      /* glsl */ `
     vec3 refractionOut = mix(diffuseColor.rgb, vec3(1.0), nFresnel);
     if (any(isnan(refractionOut)) || any(isinf(refractionOut))) refractionOut = vec3(1.0);
     gl_FragColor = vec4(min(refractionOut, vec3(48.0)), diffuseColor.a);`,
-  )
+    )
 }
 
 type MaterialConfig = {
@@ -306,6 +319,7 @@ interface DiamondDefaults {
   bounces?: number
   fresnel?: number
   aberrationStrength?: number
+  envMipBias?: number
   // MeshPhysicalMaterial
   transmission?: number
   thickness?: number
@@ -441,6 +455,7 @@ export function Ring({
     bounces: diamondBounces = 4,
     fresnel: diamondFresnel = 0.1,
     aberrationStrength: diamondAberration = 0.044,
+    envMipBias: diamondEnvMipBias = 1.0,
     transmission: diamondTransmission = 1.0,
     thickness: diamondThickness = 0.5,
     roughness: diamondRoughness = 0.0,
@@ -489,6 +504,7 @@ export function Ring({
     fresnel: { value: diamondFresnel, min: 0, max: 100, step: 0.1 },
     'aberration (×1000)': { value: diamondAberration * 1000, min: 1, max: 100, step: 1 },
     envMapResolution: { value: 512, options: { '128': 128, '256': 256, '512': 512, '1024': 1024 } },
+    envMipBias: { value: diamondEnvMipBias, min: 1, max: 8, step: 0.1, label: 'aliasBlur (mipBias)' },
     // --- Physical (gemMaterial='physical'에서만 반영) ---
     transmission: { value: diamondTransmission, min: 0, max: 1, step: 0.01 },
     thickness: { value: diamondThickness, min: 0, max: 5, step: 0.01 },
@@ -511,8 +527,21 @@ export function Ring({
       setCubeRenderTarget(null)
       return
     }
+    const env = scene.environment
     const cubeRT = new THREE.WebGLCubeRenderTarget(gemControls.envMapResolution)
-    cubeRT.fromEquirectangularTexture(gl, scene.environment)
+    // pavé처럼 화면에서 작은 스톤은 픽셀마다 광선 방향이 급변해 mip 없는 envMap을 찍으면
+    // 회전 시 specular aliasing(자글거림)이 생긴다. refraction 셰이더는 textureGrad로
+    // mip을 고를 수 있으므로(correctMips) cube 텍스처에 mipmap을 만들어 준다.
+    // fromEquirectangularTexture는 소스 텍스처의 필터 플래그를 RT에 복사하므로,
+    // 변환하는 동안만 소스에 mip 플래그를 걸었다가 복원한다 (GPU 파라미터는 version
+    // 변경 전엔 재적용되지 않아 소스 샘플링에는 영향 없음).
+    const prevGenerateMipmaps = env.generateMipmaps
+    const prevMinFilter = env.minFilter
+    env.generateMipmaps = true
+    env.minFilter = THREE.LinearMipmapLinearFilter
+    cubeRT.fromEquirectangularTexture(gl, env)
+    env.generateMipmaps = prevGenerateMipmaps
+    env.minFilter = prevMinFilter
     setCubeRenderTarget(cubeRT)
     return () => {
       cubeRT.dispose()
@@ -537,6 +566,11 @@ export function Ring({
   useEffect(() => {
     shadowMaterial.uniforms.shadowOpacity.value = shadowControls.opacity
   }, [shadowControls.opacity, shadowMaterial])
+
+  // envMipBias uniform 동기화 (guardRefractionShader가 참조하는 공유 홀더)
+  useEffect(() => {
+    gemEnvMipBias.value = gemControls.envMipBias
+  }, [gemControls.envMipBias])
 
   // Metal 재질 생성 (PBR - 씬 환경맵 자동 사용)
   // toneMapped: true로 bloom에서 제외 (1.0 이하로 클램프)

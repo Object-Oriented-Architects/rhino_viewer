@@ -41,6 +41,8 @@ export interface DiamondConfig {
   bounces: number
   fresnel: number
   aberrationStrength: number
+  /** envMap 샘플링 mip bias — 1=원본, 키울수록 pavé 자글거림 ↓ / 스파클 선명도 ↓ */
+  envMipBias?: number
   // MeshPhysicalMaterial 전용 — /ring-plusplastic에서 사용 (optional)
   transmission?: number
   thickness?: number

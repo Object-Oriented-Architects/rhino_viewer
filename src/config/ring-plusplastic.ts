@@ -55,6 +55,7 @@ export const ringPlusplasticConfig: SceneConfig = {
     bounces: 3,
     fresnel: 1.0,
     aberrationStrength: 0.004,
+    envMipBias: 2.0,
     // Physical (fallback 전용)
     transmission: 0.85,
     thickness: 2.0,
