@@ -3,6 +3,10 @@
 export interface ViewConfig {
   fov: number
   backgroundColor?: string
+  /** 렌더 스케일(dpr). 높일수록 SSAA 효과로 작은 보석 자글거림 ↓ (GPU 비용 ↑) */
+  dpr?: number
+  /** 시간축 평균(EMA) 강도 0~0.95. 프레임 간 popping ↓ / 잔상 ↑. 0=끔 */
+  temporalSmoothing?: number
 }
 
 export interface LightConfig {

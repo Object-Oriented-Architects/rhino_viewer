@@ -13,6 +13,10 @@ export const ringPlusplasticConfig: SceneConfig = {
   view: {
     fov: 30,
     backgroundColor: '#f3f3f3',
+    // dpr 3은 refraction ray tracing 비용이 2.25배라 ~33fps로 떨어짐 — 낮은 fps는
+    // 프레임당 회전각을 키워 체감 자글거림을 오히려 악화. 2 + temporalSmoothing 조합이 우수
+    dpr: 2,
+    temporalSmoothing: 0.75, // 시간축 평균 — 프레임 간 popping을 페이드로
   },
 
   light: {

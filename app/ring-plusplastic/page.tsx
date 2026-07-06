@@ -10,6 +10,7 @@ import { RGBELoader } from 'three/examples/jsm/loaders/RGBELoader.js'
 import { EffectComposer, SMAA, Bloom } from '@react-three/postprocessing'
 import * as THREE from 'three'
 import { ringPlusplasticConfig } from '@/config'
+import { TemporalSmooth } from '@/components/canvas/TemporalSmooth'
 
 // blob URL은 확장자가 없어서 drei의 Environment가 로더를 판별 못 함
 // RGBELoader로 직접 로드하여 map prop으로 전달
@@ -138,10 +139,20 @@ export default function Page() {
   }, [modelFile])
 
   // View 컨트롤
-  const { fov, backgroundColor, autoRotate } = useControls('View', {
+  const { fov, backgroundColor, autoRotate, renderScale, temporalSmoothing } = useControls('View', {
     fov: { value: config.view.fov, min: 10, max: 120, step: 1 },
     backgroundColor: { value: config.view.backgroundColor || '#ffffff' },
     autoRotate: { value: true, label: 'auto rotate' },
+    // SSAA: 픽셀당 샘플 수를 늘려 작은 보석의 facet 단위 자글거림을 평균으로 눌러줌
+    renderScale: { value: config.view.dpr ?? 2, options: { '1.5x': 1.5, '2x': 2, '3x': 3, '4x': 4 }, label: 'renderScale (SSAA)' },
+    // 시간축 평균 — 프레임 간 popping을 페이드로. 0=끔, 높을수록 안정 ↑/잔상 ↑
+    temporalSmoothing: {
+      value: config.view.temporalSmoothing ?? 0,
+      min: 0,
+      max: 0.95,
+      step: 0.01,
+      label: 'temporal smooth',
+    },
   })
 
   // Light 컨트롤
@@ -213,7 +224,9 @@ export default function Page() {
         <div className='flex flex-col gap-2 p-2 md:grid md:grid-cols-2 md:gap-4 md:p-4 md:w-[min(100vw,100vh)]'>
           <div className='relative w-full aspect-square bg-white'>
             {isModelLoading && <LoadingSpinner message='Loading...' />}
-            <Canvas gl={{ antialias: true }} dpr={[2, 3]} shadows>
+            {/* antialias=false: EffectComposer(MSAA 4)+SMAA가 AA를 담당 — 캔버스 자체 MSAA는
+                중복이며 TemporalSmooth의 화면 복사(resolve) 비용만 키움 */}
+            <Canvas gl={{ antialias: false }} dpr={renderScale} shadows>
               <color attach='background' args={[backgroundColor]} />
               {hdrFile.startsWith('blob:') ? (
                 <BlobHdrEnvironment
@@ -286,6 +299,7 @@ export default function Page() {
                   radius={bloomRadius}
                   mipmapBlur={bloomMipmap}
                 />
+                <TemporalSmooth smoothing={temporalSmoothing} />
               </EffectComposer>
             </Canvas>
           </div>
