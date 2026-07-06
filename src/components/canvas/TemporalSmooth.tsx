@@ -34,6 +34,7 @@ class TemporalSmoothPass extends Pass {
         currentFrame: { value: null },
         historyFrame: { value: null },
         blend: { value: 0 },
+        texelSize: { value: new THREE.Vector2() },
       },
       vertexShader: /* glsl */ `
         varying vec2 vUv;
@@ -46,10 +47,26 @@ class TemporalSmoothPass extends Pass {
         uniform sampler2D currentFrame;
         uniform sampler2D historyFrame;
         uniform float blend;
+        uniform vec2 texelSize;
         varying vec2 vUv;
         void main() {
           vec4 curr = texture2D(currentFrame, vUv);
           vec4 hist = texture2D(historyFrame, vUv);
+          // Neighborhood clamp (anti-ghosting): 이전 프레임 값을 현재 프레임 3x3
+          // 이웃의 min/max 범위로 제한 — 순간 스파이크/이동 잔상이 히스토리에
+          // 잔류하는 것을 방지하면서 범위 내 시간 평균 효과는 유지한다.
+          vec4 cmin = curr;
+          vec4 cmax = curr;
+          vec4 s;
+          s = texture2D(currentFrame, vUv + texelSize * vec2(-1.0, -1.0)); cmin = min(cmin, s); cmax = max(cmax, s);
+          s = texture2D(currentFrame, vUv + texelSize * vec2( 0.0, -1.0)); cmin = min(cmin, s); cmax = max(cmax, s);
+          s = texture2D(currentFrame, vUv + texelSize * vec2( 1.0, -1.0)); cmin = min(cmin, s); cmax = max(cmax, s);
+          s = texture2D(currentFrame, vUv + texelSize * vec2(-1.0,  0.0)); cmin = min(cmin, s); cmax = max(cmax, s);
+          s = texture2D(currentFrame, vUv + texelSize * vec2( 1.0,  0.0)); cmin = min(cmin, s); cmax = max(cmax, s);
+          s = texture2D(currentFrame, vUv + texelSize * vec2(-1.0,  1.0)); cmin = min(cmin, s); cmax = max(cmax, s);
+          s = texture2D(currentFrame, vUv + texelSize * vec2( 0.0,  1.0)); cmin = min(cmin, s); cmax = max(cmax, s);
+          s = texture2D(currentFrame, vUv + texelSize * vec2( 1.0,  1.0)); cmin = min(cmin, s); cmax = max(cmax, s);
+          hist = clamp(hist, cmin, cmax);
           gl_FragColor = mix(curr, hist, blend);
           // 렌더타겟이 linear면 no-op, 화면(sRGB)이면 변환 — 타겟별 프로그램으로 자동 분기
           #include <colorspace_fragment>
@@ -107,6 +124,7 @@ class TemporalSmoothPass extends Pass {
     this.blendMaterial.uniforms.currentFrame.value = inputBuffer.texture
     this.blendMaterial.uniforms.historyFrame.value = historyRead.texture
     this.blendMaterial.uniforms.blend.value = effectiveBlend
+    this.blendMaterial.uniforms.texelSize.value.set(1 / inputBuffer.width, 1 / inputBuffer.height)
     renderer.setRenderTarget(historyWrite)
     renderer.render(this.quadScene, this.quadCamera)
 

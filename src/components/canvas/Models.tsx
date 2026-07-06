@@ -352,6 +352,8 @@ interface ProngDefaults {
 interface RingProps {
   onLoadComplete?: () => void
   modelPath?: string
+  /** 바닥 그림자 기본 불투명도 (Leva Shadow.opacity 초기값) */
+  shadowOpacity?: number
   shadowTexturePath?: string
   metalDefaults?: MetalDefaults
   prongDefaults?: ProngDefaults
@@ -365,6 +367,7 @@ interface RingProps {
 export function Ring({
   onLoadComplete,
   modelPath = '/model/ring-260203/Ring_Mesh_0203.3dm',
+  shadowOpacity = 1,
   shadowTexturePath = '/model/ring-260203/shadow.jpg',
   metalDefaults = {},
   prongDefaults = {},
@@ -557,7 +560,7 @@ export function Ring({
 
   // Shadow 컨트롤
   const shadowControls = useControls('Shadow', {
-    opacity: { value: 1, min: 0, max: 1, step: 0.01 },
+    opacity: { value: shadowOpacity, min: 0, max: 1, step: 0.01 },
   })
 
   // Transform 컨트롤

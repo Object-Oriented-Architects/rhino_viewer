@@ -90,6 +90,12 @@ export interface AOConfig {
   bias: number
 }
 
+export interface GradeConfig {
+  /** -1~1. 오프라인 렌더의 대비(깊은 다크+블로운 하이라이트) 근사용 후처리 */
+  contrast: number
+  brightness: number
+}
+
 export interface CausticsConfig {
   enabled: boolean
   color: string
@@ -118,6 +124,8 @@ export interface SceneConfig {
   modelPath: string
   hdrPath: string
   shadowTexturePath?: string
+  /** 바닥 그림자 불투명도 기본값 (미지정 시 1) */
+  shadowOpacity?: number
 
   // 카메라
   cameraPosition: [number, number, number]
@@ -131,6 +139,7 @@ export interface SceneConfig {
   diamond: DiamondConfig
   transform: TransformConfig
   bloom: BloomConfig
+  grade?: GradeConfig
   ao?: AOConfig
   caustics?: CausticsConfig
   shadows?: ShadowsConfig

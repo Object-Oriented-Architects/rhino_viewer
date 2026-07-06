@@ -7,7 +7,7 @@ import { Leva, useControls, button } from 'leva'
 import { Canvas, useLoader } from '@react-three/fiber'
 import { OrbitControls, PerspectiveCamera, Environment, Caustics } from '@react-three/drei'
 import { RGBELoader } from 'three/examples/jsm/loaders/RGBELoader.js'
-import { EffectComposer, SMAA, Bloom } from '@react-three/postprocessing'
+import { EffectComposer, SMAA, Bloom, BrightnessContrast } from '@react-three/postprocessing'
 import * as THREE from 'three'
 import { ringPlusplasticConfig } from '@/config'
 import { TemporalSmooth } from '@/components/canvas/TemporalSmooth'
@@ -178,6 +178,12 @@ export default function Page() {
       bloomMipmap: { value: true, label: 'mipmapBlur' },
     })
 
+  // Grade 컨트롤 — 오프라인 렌더의 대비(깊은 다크 + 블로운 하이라이트)에 근접시키는 후처리
+  const { gradeContrast, gradeBrightness } = useControls('Grade', {
+    gradeContrast: { value: config.grade?.contrast ?? 0, min: -0.5, max: 0.5, step: 0.005, label: 'contrast' },
+    gradeBrightness: { value: config.grade?.brightness ?? 0, min: -0.3, max: 0.3, step: 0.005, label: 'brightness' },
+  })
+
   // Caustics 컨트롤
   const causticsDefaults = config.caustics!
   const {
@@ -262,6 +268,7 @@ export default function Page() {
                       key={modelFile}
                       modelPath={modelFile}
                       shadowTexturePath={config.shadowTexturePath}
+                      shadowOpacity={config.shadowOpacity}
                       metalDefaults={config.metal}
                       prongDefaults={config.prong}
                       diamondDefaults={config.diamond}
@@ -299,6 +306,7 @@ export default function Page() {
                   radius={bloomRadius}
                   mipmapBlur={bloomMipmap}
                 />
+                <BrightnessContrast brightness={gradeBrightness} contrast={gradeContrast} />
                 <TemporalSmooth smoothing={temporalSmoothing} />
               </EffectComposer>
             </Canvas>
