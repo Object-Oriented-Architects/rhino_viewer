@@ -41,3 +41,6 @@ report.*.json
 # .vscode Debugging
 .vscode/*-debug-profile
 .playwright-mcp/
+
+# typescript incremental build info
+*.tsbuildinfo

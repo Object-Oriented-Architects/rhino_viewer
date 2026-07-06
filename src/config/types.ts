@@ -60,12 +60,6 @@ export interface TransformConfig {
   rotationX: number
 }
 
-export interface MotionBloomConfig {
-  enabled: boolean
-  fadeInSpeed: number
-  fadeOutSpeed: number
-}
-
 export interface BloomConfig {
   enabled: boolean
   intensity: number
@@ -73,7 +67,6 @@ export interface BloomConfig {
   luminanceSmoothing: number
   radius: number
   levels?: number
-  motionBloom?: MotionBloomConfig
 }
 
 export interface AOConfig {

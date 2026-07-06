@@ -73,11 +73,14 @@ export default function Page() {
 
   const pendingModelUrl = useRef<string | null>(null)
   const pendingHdrUrl = useRef<string | null>(null)
+  // 생성한 blob URL 전체를 ref에 누적 — 언마운트 시 일괄 revoke (state 클로저는 stale해서 못 씀)
+  const createdBlobUrls = useRef<string[]>([])
 
   const handleModelFile = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (file) {
       const url = URL.createObjectURL(file)
+      createdBlobUrls.current.push(url)
       pendingModelUrl.current = url
       setUploadedModels((prev) => ({ ...prev, [file.name]: url }))
     }
@@ -88,6 +91,7 @@ export default function Page() {
     const file = e.target.files?.[0]
     if (file) {
       const url = URL.createObjectURL(file)
+      createdBlobUrls.current.push(url)
       pendingHdrUrl.current = url
       setUploadedHdrs((prev) => ({ ...prev, [file.name]: url }))
     }
@@ -95,9 +99,9 @@ export default function Page() {
   }, [])
 
   useEffect(() => {
+    const urls = createdBlobUrls.current
     return () => {
-      Object.values(uploadedModels).forEach(URL.revokeObjectURL)
-      Object.values(uploadedHdrs).forEach(URL.revokeObjectURL)
+      urls.forEach(URL.revokeObjectURL)
     }
   }, [])
 
@@ -239,18 +243,8 @@ export default function Page() {
                 enablePan={false}
               />
               <Suspense fallback={null}>
-                {causticsEnabled ? (
-                  <Caustics
-                    backside
-                    causticsOnly={false}
-                    color={causticsColor}
-                    position={[0, causticsPosY, 0]}
-                    lightSource={[causticsLightX, causticsLightY, causticsLightZ]}
-                    worldRadius={causticsWorldRadius}
-                    ior={causticsIor}
-                    backsideIOR={causticsBacksideIOR}
-                    intensity={causticsIntensity}
-                  >
+                {(() => {
+                  const ring = (
                     <Ring
                       key={modelFile}
                       modelPath={modelFile}
@@ -262,20 +256,25 @@ export default function Page() {
                       gemMaterial='refraction'
                       onLoadComplete={handleModelLoadComplete}
                     />
-                  </Caustics>
-                ) : (
-                  <Ring
-                    key={modelFile}
-                    modelPath={modelFile}
-                    shadowTexturePath={config.shadowTexturePath}
-                    metalDefaults={config.metal}
-                    prongDefaults={config.prong}
-                    diamondDefaults={config.diamond}
-                    transformDefaults={config.transform}
-                    gemMaterial='refraction'
-                    onLoadComplete={handleModelLoadComplete}
-                  />
-                )}
+                  )
+                  return causticsEnabled ? (
+                    <Caustics
+                      backside
+                      causticsOnly={false}
+                      color={causticsColor}
+                      position={[0, causticsPosY, 0]}
+                      lightSource={[causticsLightX, causticsLightY, causticsLightZ]}
+                      worldRadius={causticsWorldRadius}
+                      ior={causticsIor}
+                      backsideIOR={causticsBacksideIOR}
+                      intensity={causticsIntensity}
+                    >
+                      {ring}
+                    </Caustics>
+                  ) : (
+                    ring
+                  )
+                })()}
               </Suspense>
               <EffectComposer multisampling={4} enableNormalPass={false}>
                 <SMAA />
