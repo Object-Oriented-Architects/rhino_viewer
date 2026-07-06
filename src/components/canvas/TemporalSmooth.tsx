@@ -1,9 +1,21 @@
 'use client'
 
-import { useThree } from '@react-three/fiber'
+import { useThree, useFrame } from '@react-three/fiber'
 import * as THREE from 'three'
 import { Pass } from 'postprocessing'
-import { useEffect, useMemo } from 'react'
+import { useEffect, useMemo, useRef } from 'react'
+
+// Halton(2,3) 8-포인트 서브픽셀 지터 시퀀스 (중심 기준 오프셋, ±0.5px)
+const HALTON_JITTER: Array<[number, number]> = [
+  [0.0, -0.167],
+  [-0.25, 0.167],
+  [0.25, -0.389],
+  [-0.375, -0.056],
+  [0.125, 0.278],
+  [-0.125, -0.278],
+  [0.375, 0.056],
+  [-0.4375, 0.389],
+]
 
 /**
  * EMA 기반 시간축 안티앨리어싱 패스 (AfterimagePass 방식).
@@ -66,6 +78,12 @@ class TemporalSmoothPass extends Pass {
           s = texture2D(currentFrame, vUv + texelSize * vec2(-1.0,  1.0)); cmin = min(cmin, s); cmax = max(cmax, s);
           s = texture2D(currentFrame, vUv + texelSize * vec2( 0.0,  1.0)); cmin = min(cmin, s); cmax = max(cmax, s);
           s = texture2D(currentFrame, vUv + texelSize * vec2( 1.0,  1.0)); cmin = min(cmin, s); cmax = max(cmax, s);
+          // 적응형 슬랙: 이웃 분산이 큰 곳(반짝이는 facet)은 clamp를 느슨하게 풀어
+          // 시간 평균이 더 깊게 작동하고, 균일한 곳(배경)은 타이트하게 유지해
+          // 고스팅을 차단한다.
+          vec4 range = (cmax - cmin) * 0.5;
+          cmin -= range;
+          cmax += range;
           hist = clamp(hist, cmin, cmax);
           gl_FragColor = mix(curr, hist, blend);
           // 렌더타겟이 linear면 no-op, 화면(sRGB)이면 변환 — 타겟별 프로그램으로 자동 분기
@@ -155,12 +173,15 @@ class TemporalSmoothPass extends Pass {
 interface TemporalSmoothProps {
   /** 0~0.95. 이전 프레임 가중치 — 높을수록 자글거림 ↓ / 잔상(모션 블러) ↑. 0이면 통과 */
   smoothing?: number
+  /** 카메라 서브픽셀 지터 — 매 프레임 샘플 위치를 흔들어 EMA가 시간축 수퍼샘플링이 되게 함 */
+  jitter?: boolean
 }
 
-/** EffectComposer 자식으로 넣는 시간축 스무딩 패스 */
-export function TemporalSmooth({ smoothing = 0.7 }: TemporalSmoothProps) {
-  const { camera } = useThree()
+/** EffectComposer 자식으로 넣는 시간축 스무딩 패스 (TAA: 지터 + EMA + 적응형 clamp) */
+export function TemporalSmooth({ smoothing = 0.7, jitter = true }: TemporalSmoothProps) {
+  const { camera, size } = useThree()
   const pass = useMemo(() => new TemporalSmoothPass(camera), [camera])
+  const jitterFrame = useRef(0)
 
   useEffect(() => {
     pass.smoothing = smoothing
@@ -170,6 +191,23 @@ export function TemporalSmooth({ smoothing = 0.7 }: TemporalSmoothProps) {
   useEffect(() => {
     return () => pass.dispose()
   }, [pass])
+
+  // 지터 해제 시(비활성/언마운트) 뷰 오프셋 원복
+  const perspCamera = camera as THREE.PerspectiveCamera
+  const jitterActive = jitter && smoothing > 0
+  useEffect(() => {
+    return () => {
+      if (perspCamera.clearViewOffset) perspCamera.clearViewOffset()
+    }
+  }, [perspCamera, jitterActive])
+
+  // composer(priority 1)가 씬을 렌더하기 전에 서브픽셀 오프셋 적용
+  useFrame(() => {
+    if (!jitterActive || !perspCamera.setViewOffset) return
+    const [jx, jy] = HALTON_JITTER[jitterFrame.current % HALTON_JITTER.length]
+    jitterFrame.current++
+    perspCamera.setViewOffset(size.width, size.height, jx, jy, size.width, size.height)
+  }, 0)
 
   return <primitive object={pass} />
 }
