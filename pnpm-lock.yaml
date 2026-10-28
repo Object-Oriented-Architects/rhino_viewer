@@ -47,6 +47,9 @@ importers:
       three:
         specifier: ^0.179.1
         version: 0.179.1
+      three-mesh-bvh:
+        specifier: 0.8.3
+        version: 0.8.3(three@0.179.1)
       three-stdlib:
         specifier: ^2.28.9
         version: 2.36.0(three@0.179.1)

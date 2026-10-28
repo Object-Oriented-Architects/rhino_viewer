@@ -5,24 +5,34 @@ import * as THREE from 'three'
 import { Pass } from 'postprocessing'
 import { useEffect, useMemo, useRef } from 'react'
 
-// Halton(2,3) 8-포인트 서브픽셀 지터 시퀀스 (중심 기준 오프셋, ±0.5px)
-const HALTON_JITTER: Array<[number, number]> = [
-  [0.0, -0.167],
-  [-0.25, 0.167],
-  [0.25, -0.389],
-  [-0.375, -0.056],
-  [0.125, 0.278],
-  [-0.125, -0.278],
-  [0.375, 0.056],
-  [-0.4375, 0.389],
-]
+/** 정지 시 누적 평균에 넣는 최대 프레임 수 — 이후엔 1/N 가중 EMA로 계속 다듬는다 */
+const PROGRESSIVE_FRAMES = 32
+
+const halton = (index: number, base: number) => {
+  let f = 1
+  let r = 0
+  for (let i = index; i > 0; i = Math.floor(i / base)) {
+    f /= base
+    r += f * (i % base)
+  }
+  return r
+}
+
+// Halton(2,3) 서브픽셀 지터 시퀀스 (중심 기준 오프셋, ±0.5px) — 누적 프레임 수만큼 서로 다른 위치
+const HALTON_JITTER: Array<[number, number]> = Array.from({ length: PROGRESSIVE_FRAMES }, (_, i) => [
+  halton(i + 1, 2) - 0.5,
+  halton(i + 1, 3) - 0.5,
+])
+
+/** 프레임 간 카메라 행렬 차이가 이보다 작으면 정지로 본다 (OrbitControls 감쇠 꼬리가 끝없이 남기는 미세 변화 무시) */
+const STILL_EPSILON = 1e-5
 
 /**
  * EMA 기반 시간축 안티앨리어싱 패스 (AfterimagePass 방식).
  * 작은 pavé 보석의 facet 단위 프레임 간 popping(자글거림)을 몇 프레임에 걸친
  * 페이드로 바꾼다. EffectComposer 체인 안에서 오프스크린 RT ping-pong으로만
  * 동작하므로 기본 프레임버퍼 읽기(파이프라인 스톨)가 없다.
- * - 정지 상태: 현재≒이전 프레임이라 시각적 영향 없음
+ * - 정지 상태: 지터 프레임을 누적 평균(프로그레시브, 최대 32장)해 수퍼샘플 수준으로 수렴 — 자글거림·계단 제거
  * - 빠른 카메라 이동: 모션 크기에 비례해 블렌드를 줄여 잔상 억제
  */
 class TemporalSmoothPass extends Pass {
@@ -34,6 +44,8 @@ class TemporalSmoothPass extends Pass {
   private quadCamera: THREE.OrthographicCamera
   private prevCamMatrix = new THREE.Matrix4()
   private sceneCamera: THREE.Camera
+  /** 카메라가 멈춘 뒤 히스토리에 누적된 프레임 수 (움직이면 0) */
+  private stillFrames = 0
 
   smoothing = 0.7
 
@@ -131,12 +143,23 @@ class TemporalSmoothPass extends Pass {
     // 카메라 모션 크기 → 빠르게 움직일수록 블렌드 축소 (잔상 억제)
     const camMatrix = this.sceneCamera.matrixWorld
     let motion = 0
+    let maxDelta = 0
     const prev = this.prevCamMatrix.elements
     const curr = camMatrix.elements
-    for (let i = 12; i < 15; i++) motion += Math.abs(curr[i] - prev[i])
+    for (let i = 0; i < 16; i++) {
+      const delta = Math.abs(curr[i] - prev[i])
+      maxDelta = Math.max(maxDelta, delta)
+      if (i >= 12 && i < 15) motion += delta
+    }
     this.prevCamMatrix.copy(camMatrix)
-    const motionScale = THREE.MathUtils.clamp(1 - motion * 8, 0.3, 1)
-    const effectiveBlend = this.hasHistory ? this.smoothing * motionScale : 0
+    // 빠른 드래그에선 히스토리를 거의 버린다 — 하한 0.3이면 블렌드 0.9에서 pavé가 이중상으로 남았다
+    const motionScale = THREE.MathUtils.clamp(1 - motion * 8, 0.05, 1)
+
+    // 정지면 running mean(1 - 1/n)으로 지터 샘플을 누적, 움직이면 EMA로 복귀
+    this.stillFrames =
+      this.hasHistory && maxDelta < STILL_EPSILON ? Math.min(this.stillFrames + 1, PROGRESSIVE_FRAMES) : 0
+    const progressiveBlend = this.stillFrames > 0 ? 1 - 1 / (this.stillFrames + 1) : 0
+    const effectiveBlend = this.hasHistory ? Math.max(this.smoothing * motionScale, progressiveBlend) : 0
 
     // 1) 현재+이전 프레임 블렌드 → historyWrite
     this.blendMaterial.uniforms.currentFrame.value = inputBuffer.texture
@@ -158,8 +181,14 @@ class TemporalSmoothPass extends Pass {
     this.hasHistory = true
   }
 
+  /** 직전 프레임에서 카메라가 멈춰 있었는지 — 지터는 이때만 켠다 */
+  get isStill() {
+    return this.stillFrames > 0
+  }
+
   reset() {
     this.hasHistory = false
+    this.stillFrames = 0
   }
 
   override dispose(): void {
@@ -173,11 +202,15 @@ class TemporalSmoothPass extends Pass {
 interface TemporalSmoothProps {
   /** 0~0.95. 이전 프레임 가중치 — 높을수록 자글거림 ↓ / 잔상(모션 블러) ↑. 0이면 통과 */
   smoothing?: number
-  /** 카메라 서브픽셀 지터 — 매 프레임 샘플 위치를 흔들어 EMA가 시간축 수퍼샘플링이 되게 함 */
+  /**
+   * 정지 시 카메라 서브픽셀 지터 — 누적 평균이 시간축 수퍼샘플링이 되게 함.
+   * 움직이는 동안은 끈다: 짧은 EMA에선 지터가 평균되지 못하고 금속 엣지 깜빡임 노이즈로 남았다
+   * (실측 자동회전 >8 깜빡임 픽셀: smoothing 0 → 7590, 0.75+지터 → 15087)
+   */
   jitter?: boolean
 }
 
-/** EffectComposer 자식으로 넣는 시간축 스무딩 패스 (TAA: 지터 + EMA + 적응형 clamp) */
+/** EffectComposer 자식으로 넣는 시간축 스무딩 패스 (TAA: 지터 + EMA + 적응형 clamp, 정지 시 프로그레시브 누적) */
 export function TemporalSmooth({ smoothing = 0.7, jitter = true }: TemporalSmoothProps) {
   const { camera, size } = useThree()
   const pass = useMemo(() => new TemporalSmoothPass(camera), [camera])
@@ -204,6 +237,10 @@ export function TemporalSmooth({ smoothing = 0.7, jitter = true }: TemporalSmoot
   // composer(priority 1)가 씬을 렌더하기 전에 서브픽셀 오프셋 적용
   useFrame(() => {
     if (!jitterActive || !perspCamera.setViewOffset) return
+    if (!pass.isStill) {
+      if (perspCamera.view?.enabled) perspCamera.clearViewOffset()
+      return
+    }
     const [jx, jy] = HALTON_JITTER[jitterFrame.current % HALTON_JITTER.length]
     jitterFrame.current++
     perspCamera.setViewOffset(size.width, size.height, jx, jy, size.width, size.height)

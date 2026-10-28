@@ -1,0 +1,326 @@
+/* Jewel_test index.html 스타일 이식 — 전역 선택자(*, input)는 .theme 아래로 한정 */
+
+.theme {
+  --bg-panel: rgba(12, 14, 20, 0.78);
+  --border-subtle: rgba(255, 255, 255, 0.1);
+  --border-gold: rgba(212, 175, 55, 0.45);
+  --accent-gold: #e5c158;
+  --accent-gold-soft: rgba(229, 193, 88, 0.16);
+  --text-primary: #f7f8fa;
+  --text-secondary: #9ba1b0;
+  --text-muted: #646b7a;
+
+  font-family:
+    var(--font-jakarta),
+    -apple-system,
+    BlinkMacSystemFont,
+    sans-serif;
+  color: var(--text-primary);
+}
+
+.theme,
+.theme * {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+  user-select: none;
+}
+
+/* 빠른 동작 — 패널 맨 위. 패널 폭(312px)에 앞의 두 버튼이 한 줄로 들어가게 원본(간격 10, 좌우 16)보다 조금 좁힌다 */
+.actionBar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 7px;
+}
+
+.actionBar .actionBtn {
+  padding: 10px 14px;
+}
+
+.actionBtn {
+  background: var(--bg-panel);
+  backdrop-filter: blur(16px);
+  border: 1px solid var(--border-subtle);
+  color: var(--text-primary);
+  padding: 10px 16px;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  transition: all 0.2s ease;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+}
+
+.actionBtn:hover {
+  border-color: var(--border-gold);
+  background: rgba(24, 28, 38, 0.9);
+  transform: translateY(-1px);
+}
+
+.actionBtn.active {
+  border-color: var(--accent-gold);
+  background: var(--accent-gold-soft);
+  color: var(--accent-gold);
+}
+
+/* 오른쪽 설정 패널 */
+.configuratorPanel {
+  position: fixed;
+  top: 24px;
+  right: 24px;
+  bottom: 24px;
+  width: 356px;
+  z-index: 1000;
+  background: var(--bg-panel);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border: 1px solid var(--border-subtle);
+  border-radius: 20px;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.6);
+  overflow: hidden;
+}
+
+.panelHeader {
+  padding: 18px 22px 14px;
+  border-bottom: 1px solid var(--border-subtle);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.panelHeader h2 {
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-primary);
+}
+
+.badges {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+
+.fpsBadge {
+  font-size: 11px;
+  font-weight: 600;
+  color: #5ce6a0;
+  background: rgba(92, 230, 160, 0.12);
+  border: 1px solid rgba(92, 230, 160, 0.3);
+  padding: 3px 9px;
+  border-radius: 99px;
+  font-variant-numeric: tabular-nums;
+}
+
+.tierDesktop {
+  color: #e5c158;
+  background: rgba(229, 193, 88, 0.12);
+  border-color: rgba(229, 193, 88, 0.35);
+}
+
+.tierMobile {
+  color: #64d2ff;
+  background: rgba(100, 210, 255, 0.12);
+  border-color: rgba(100, 210, 255, 0.35);
+}
+
+.panelBody {
+  padding: 18px 22px;
+  overflow-y: auto;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.panelBody::-webkit-scrollbar {
+  width: 5px;
+}
+
+.panelBody::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 99px;
+}
+
+.controlSection {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.sectionLabel {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-secondary);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+/* Segmented Buttons */
+.segmentedGroup {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 7px;
+}
+
+.segmentedGroup.cols3 {
+  grid-template-columns: repeat(3, 1fr);
+}
+
+.segBtn {
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--border-subtle);
+  color: var(--text-secondary);
+  padding: 9px 10px;
+  border-radius: 10px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.18s ease;
+  text-align: center;
+}
+
+.segBtn:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--text-primary);
+}
+
+.segBtn.active {
+  background: var(--accent-gold-soft);
+  border-color: var(--accent-gold);
+  color: var(--accent-gold);
+  box-shadow: 0 0 16px rgba(229, 193, 88, 0.15);
+}
+
+/* Gemstone & Metal Swatches */
+.swatchGrid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+}
+
+.swatchBtn {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--border-subtle);
+  border-radius: 11px;
+  padding: 9px 8px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  transition: all 0.18s ease;
+  color: var(--text-secondary);
+  font-size: 11.5px;
+  font-weight: 600;
+}
+
+.swatchBtn:hover {
+  background: rgba(255, 255, 255, 0.07);
+  color: var(--text-primary);
+}
+
+.swatchBtn.active {
+  background: var(--accent-gold-soft);
+  border-color: var(--accent-gold);
+  color: var(--text-primary);
+}
+
+.swatchDot {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  box-shadow: inset 0 2px 4px rgba(255, 255, 255, 0.45);
+}
+
+/* Sliders */
+.sliderRow {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.sliderHeader {
+  display: flex;
+  justify-content: space-between;
+  font-size: 12px;
+  color: var(--text-primary);
+  font-weight: 500;
+}
+
+.sliderVal {
+  color: var(--accent-gold);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.sliderRow input[type='range'] {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  height: 5px;
+  background: rgba(255, 255, 255, 0.12);
+  border-radius: 99px;
+  outline: none;
+}
+
+.sliderRow input[type='range']::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--accent-gold);
+  cursor: pointer;
+  border: 2px solid #ffffff;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.45);
+}
+
+/* Comparison Callout Box */
+.comparisonCard {
+  background: linear-gradient(135deg, rgba(229, 193, 88, 0.1), rgba(255, 255, 255, 0.02));
+  border: 1px solid var(--border-gold);
+  border-radius: 12px;
+  padding: 12px 14px;
+  font-size: 11.5px;
+  line-height: 1.5;
+  color: var(--text-secondary);
+}
+
+.comparisonCard strong {
+  color: var(--accent-gold);
+  display: block;
+  margin-bottom: 3px;
+  font-size: 12px;
+}
+
+.comparisonCard code {
+  font-family: monospace;
+}
+
+@media (max-width: 820px) {
+  .configuratorPanel {
+    width: calc(100% - 24px);
+    left: 12px;
+    right: 12px;
+    top: auto;
+    bottom: 12px;
+    height: 44vh;
+  }
+
+  .actionBtn {
+    padding: 8px 12px;
+    font-size: 11px;
+  }
+}

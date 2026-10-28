@@ -218,7 +218,7 @@ export function Effects({ bloomDefaults = {} }: EffectsProps) {
   })
 
   // EffectComposer를 항상 마운트하고 intensity로 제어 (마운트/언마운트 깜빡임 방지)
-  // enableNormalPass={false}: MeshRefractionMaterial과의 충돌 방지
+  // enableNormalPass={false}: 보석 레이트레이싱 재질과의 충돌 방지
   return (
     <EffectComposer multisampling={0} enableNormalPass={false}>
       <SMAA />

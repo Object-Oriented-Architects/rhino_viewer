@@ -6,10 +6,11 @@ import Image from 'next/image'
 import { Leva, useControls } from 'leva'
 import { Canvas } from '@react-three/fiber'
 import { useThree, useFrame } from '@react-three/fiber'
-import { OrbitControls, PerspectiveCamera, Environment, SoftShadows } from '@react-three/drei'
+import { OrbitControls, PerspectiveCamera, SoftShadows } from '@react-three/drei'
 import { EffectComposer, Bloom, SMAA, SSAO, EffectComposerContext } from '@react-three/postprocessing'
 import * as THREE from 'three'
 import { ringConfig } from '@/config'
+import { GemEnvironment } from '@/components/canvas/gem/GemEnvironment'
 
 // Ring 컴포넌트 동적 로드
 const Ring = dynamic(() => import('@/components/canvas/Models').then((mod) => mod.Ring), { ssr: false })
@@ -208,11 +209,6 @@ export default function Page() {
             >
               <color attach='background' args={[backgroundColor]} />
               <SoftShadows />
-              <Environment
-                files={config.hdrPath}
-                environmentIntensity={environmentIntensity}
-                environmentRotation={envRotation}
-              />
               <ambientLight intensity={ambientLightIntensity} />
               <directionalLight position={[50, 50, 50]} intensity={directionalLightIntensity} />
               <PerspectiveCamera makeDefault fov={fov} position={config.cameraPosition} />
@@ -225,17 +221,23 @@ export default function Page() {
                 maxDistance={5.4}
                 enablePan={false}
               />
-              <Suspense fallback={null}>
-                <Ring
-                  modelPath={config.modelPath}
-                  shadowTexturePath={config.shadowTexturePath}
-                  metalDefaults={config.metal}
-                  prongDefaults={config.prong}
-                  diamondDefaults={config.diamond}
-                  transformDefaults={config.transform}
-                  onLoadComplete={handleModelLoadComplete}
-                />
-              </Suspense>
+              <GemEnvironment
+                source={config.light.studioPreset ?? config.hdrPath}
+                intensity={environmentIntensity}
+                rotation={envRotation}
+              >
+                <Suspense fallback={null}>
+                  <Ring
+                    modelPath={config.modelPath}
+                    shadowTexturePath={config.shadowTexturePath}
+                    metalDefaults={config.metal}
+                    prongDefaults={config.prong}
+                    diamondDefaults={config.diamond}
+                    transformDefaults={config.transform}
+                    onLoadComplete={handleModelLoadComplete}
+                  />
+                </Suspense>
+              </GemEnvironment>
               <EffectComposer multisampling={0} enableNormalPass>
                 <GemExcluder />
                 <SSAO

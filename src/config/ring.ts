@@ -13,11 +13,13 @@ export const ringConfig: SceneConfig = {
   // Leva 기본값
   view: {
     fov: 30,
-    backgroundColor: '#f3f3f3',
+    // 금속이 어두운 스튜디오 환경을 비추므로 배경도 검정으로 맞춤
+    backgroundColor: '#000000',
   },
 
   light: {
     envMap: 'hdr',
+    studioPreset: 'studio_luxury',
     environmentIntensity: 0.45,
     envRotX: 0,
     envRotY: 0,
@@ -46,11 +48,10 @@ export const ringConfig: SceneConfig = {
   },
 
   diamond: {
-    color: '#F0F0F0',
-    ior: 2.42,
-    bounces: 6,
-    fresnel: 1.0,
-    aberrationStrength: 0.003,
+    color: '#ffffff',
+    ior: 2.417,
+    bounces: 5,
+    aberrationStrength: 0.024,
   },
 
   transform: {
