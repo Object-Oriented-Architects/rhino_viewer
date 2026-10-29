@@ -38,30 +38,37 @@ export const ringPlusplasticConfig: SceneConfig = {
   ],
 
   view: {
+    // 참고 렌더 1번 실루엣 맞춤(IoU 0.73) — 28로 넓히면 참고 렌더보다 프레임이 넓어져 대조가 어긋난다
     fov: 20,
     // 참고 렌더 배경 실측(반지름별 중앙값): 중앙 248 → 변 중앙 241 → 모서리 237 ≈ 248·(1 − 0.026·r²).
+    // 지금 기본값은 운영 패널 기준 흰 배경 + vignette 0.06 — 위 실측(248 / 0.026)과는 다르다.
     // 어두운 스튜디오 프리셋을 쓸 땐 배경도 검정으로 맞출 것 (밝은 배경이면 어두운 환경을 비춘 금속만 검게 떠 보임)
-    backgroundColor: '#f8f8f8',
-    backgroundVignette: 0.026,
+    backgroundColor: '#ffffff',
+    backgroundVignette: 0.06,
     // dpr 3은 refraction ray tracing 비용이 2.25배라 ~33fps로 떨어짐 — 낮은 fps는
     // 프레임당 회전각을 키워 체감 자글거림을 오히려 악화. 2 + temporalSmoothing 조합이 우수
     dpr: 2,
     // 시간축 평균 — 움직일 땐 지터를 끄므로 0.5면 자글거림은 거의 사라지고 반짝임(플래시)은 96% 남는다.
     // 0.9는 반짝임까지 평균해 보석이 흐리멍텅해졌다 (실측 강한 플래시 픽셀: 0 → 3517, 0.5 → 3382, 0.9 → 2762)
     temporalSmoothing: 0.5,
-    exposure: 1.0,
+    // 참고 렌더 대조 시 노출은 1.0이었고, 지금 기본값은 운영 패널에서 쓰는 1.24다
+    exposure: 1.24,
     // 참고 렌더는 하이라이트를 누르지 않는다 — ACES는 센터석 facet이 뭉개졌고(선명도 참고 11.7 / ACES 8.0), Neutral도 0.76 위를
     // 눌러 보석 하이라이트가 흰색까지 안 올라 생기가 없었다 (렌더 2 pavé 흰 픽셀 참고 26% / Neutral 3% / Linear 18%,
     // 렌더 1 센터석 10% 하위 밝기 참고 134 / Linear 129). 금속도 Linear가 가깝다 (밴드 아래 하위 10% 참고 96 / Neutral 71 / Linear 89)
-    toneMapping: 'linear',
+    // 지금 기본값은 운영 패널에서 쓰는 Neutral — 위 실측대로 참고 렌더 대조를 다시 할 땐 Linear가 더 가깝다
+    toneMapping: 'neutral',
   },
 
   light: {
     envMap: 'hdr',
-    // 금속·보석 모두 hdrPath(참고 렌더와 같은 HDR). 금속은 환경 강도로, 보석은 Diamond envMapIntensity로 밝기를 따로 맞춘다 —
+    // 금속은 hdrPath(참고 렌더와 같은 HDR)로 비추고, 보석 레이트레이서는 gemStudioPreset(절차적 white_gem)으로 따로 비춘다 —
+    // 흰 배경 금속 환경에서 센터석·pavé의 흑백 대비를 세우려는 조합. 금속은 환경 강도로, 보석은 Diamond envMapIntensity로 밝기를 맞춘다 —
     // 노출 하나로 금속을 맞추면(0.5) 보석이 참고 렌더보다 어두웠다. Y 회전 30°가 참고 렌더와 오차 최소 (0~330° 12개 비교).
+    // 참고 렌더 대조 시 강도는 0.8이었고, 지금 기본값은 운영 패널에서 쓰는 0.7이다
     // 절차적 스튜디오(white_metal·white_gem, ijewel3d 룩)는 Leva 환경맵 목록에서 선택 가능
-    environmentIntensity: 0.8,
+    gemStudioPreset: 'white_gem',
+    environmentIntensity: 0.7,
     envRotX: 0,
     envRotY,
     envRotZ: 0,
@@ -111,6 +118,7 @@ export const ringPlusplasticConfig: SceneConfig = {
     paveDispersionMode: 0,
     paveSamples: 4,
     // Linear 톤매핑 기준 — 센터석 평균 밝기 참고 렌더 1 200 / 199, 렌더 2 181 / 183, 흰 픽셀 15% / 21%, 18% / 16%
+    // (기본 toneMapping이 Neutral, 보석 환경이 white_gem으로 바뀌었으니 이 값은 재대조 대상 — Neutral은 하이라이트를 눌러 보석이 더 어둡게 나온다)
     envMapIntensity: 1.6,
     // pavé는 센터석보다 밝게 둬야 참고와 맞았다 — 흰 픽셀 렌더 1 참고 12% / 13%, 렌더 2 26% / 18% (2.0이면 11% / 14%)
     paveEnvMapIntensity: 2.6,
@@ -142,12 +150,13 @@ export const ringPlusplasticConfig: SceneConfig = {
     rotationX: -90,
   },
 
-  // 참고 렌더엔 빛 번짐이 없다 — 켜면 pavé 둘레가 뿌옇게 번졌다 (값은 Jewel_test UnrealBloom threshold 2.4 대응, Leva에서 켤 수 있음)
+  // 참고 렌더엔 빛 번짐이 없다 — 켜면 pavé 둘레가 뿌옇게 번졌다 (참고 렌더 대조 시엔 threshold 2.4로 꺼 두는 게 맞다).
+  // 지금 기본값은 운영 패널에서 쓰는 켜짐 + 낮은 threshold(0.57) — 참고 렌더보다 번짐이 강하다
   bloom: {
-    enabled: false,
-    intensity: 0.7,
-    luminanceThreshold: 2.4,
-    luminanceSmoothing: 0.3,
+    enabled: true,
+    intensity: 0.21,
+    luminanceThreshold: 0.57,
+    luminanceSmoothing: 0.39,
     radius: 0.4,
     levels: 5,
   },
