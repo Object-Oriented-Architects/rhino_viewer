@@ -11,22 +11,30 @@ const withPWA = require('@ducanh2912/next-pwa').default({
   disable: process.env.NODE_ENV === 'development',
 })
 
+// 정적 export 모드 — Rhino 플러그인/단일 HTML 배포용. redirects는 output:'export'에서 지원되지 않는다
+const isStaticExport = process.env.NEXT_STATIC_EXPORT === '1'
+
 const nextConfig = {
   // uncomment the following snippet if using styled components
   // compiler: {
   //   styledComponents: true,
   // },
   reactStrictMode: true, // Recommended for the `pages` directory, default in `app`.
-  images: {},
-  async redirects() {
-    return [
-      {
-        source: '/ring-angle',
-        destination: '/ring',
-        permanent: true,
-      },
-    ]
-  },
+  images: isStaticExport ? { unoptimized: true } : {},
+  ...(isStaticExport ? { output: 'export', trailingSlash: true } : {}),
+  ...(isStaticExport
+    ? {}
+    : {
+        async redirects() {
+          return [
+            {
+              source: '/ring-angle',
+              destination: '/ring',
+              permanent: true,
+            },
+          ]
+        },
+      }),
   webpack(config, { isServer }) {
     if (!isServer) {
       // We're in the browser build, so we can safely exclude the sharp module

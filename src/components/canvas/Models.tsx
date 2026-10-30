@@ -5,10 +5,11 @@ import { Rhino3dmLoader } from 'three/examples/jsm/loaders/3DMLoader.js'
 import * as THREE from 'three'
 import { useMemo, useRef, useEffect, useLayoutEffect } from 'react'
 import { useControls, type useCreateStore } from 'leva'
-import { DiamondMaterial, type DiamondMaterialOptions, type DispersionMode } from './gem/DiamondMaterial'
+import { DiamondMaterial, type DispersionMode } from './gem/DiamondMaterial'
 import { splitFacetedStones } from './gem/gemGeometry'
 import { bakeSettingOcclusion } from './gem/settingOcclusion'
 import { useGemEnv } from './gem/GemEnvironment'
+import { createMetalMaterial, createProngMaterial, gemMaterialOptions, connectedGemOptions } from './jewelryMaterials'
 import { CutGemPreview } from './gem/CutGemPreview'
 import type { GemCut } from './gem/cutGeometry'
 import {
@@ -199,7 +200,7 @@ export function Breezm({ onLoadComplete, ...props }) {
   }, [])
 
   const modelObj = useLoader(Rhino3dmLoader, filepath, (loader) => {
-    loader.setLibraryPath('https://cdn.jsdelivr.net/npm/rhino3dm@8.17.0/')
+    loader.setLibraryPath('/rhino3dm/')
   })
   const matRef = useRef<Record<string, THREE.MeshPhysicalMaterial[]>>({
     Temple: [],
@@ -367,6 +368,7 @@ interface ProngDefaults {
 
 interface RingProps {
   onLoadComplete?: () => void
+  onBounds?: (box: THREE.Box3) => void
   modelPath?: string
   /** 바닥 그림자 기본 불투명도 (Leva Shadow.opacity 초기값) */
   shadowOpacity?: number
@@ -393,6 +395,7 @@ interface RingProps {
 
 export function Ring({
   onLoadComplete,
+  onBounds,
   modelPath = '/model/ring-260203/Ring_Mesh_0203.3dm',
   shadowOpacity = 1,
   shadowTexturePath = '/model/ring-260203/shadow.jpg',
@@ -413,11 +416,12 @@ export function Ring({
 
   // 3dm 모델 로드 - geometry만 사용
   const modelObj = useLoader(Rhino3dmLoader, modelPath, (loader) => {
-    loader.setLibraryPath('https://cdn.jsdelivr.net/npm/rhino3dm@8.17.0/')
+    loader.setLibraryPath('/rhino3dm/')
   })
 
   // 텍스처들을 useMemo로 로드 (깜빡임 방지)
   const textures = useMemo(() => {
+    if (!showShadow) return { shadow: null, shadowAlpha: null }
     const loader = new THREE.TextureLoader()
 
     // Shadow 텍스처 로드
@@ -431,7 +435,7 @@ export function Ring({
       shadow,
       shadowAlpha,
     }
-  }, [])
+  }, [showShadow, shadowTexturePath])
 
   // 그림자용 커스텀 ShaderMaterial (배경색 무관하게 작동)
   const shadowMaterial = useMemo(() => {
@@ -525,77 +529,95 @@ export function Ring({
   } = transformDefaults
 
   // Metal 컨트롤
-  const [metalControls, setMetalControls] = useControls('Metal', () => ({
-    // 프리셋 선택 = 아래 슬라이더 값 덮어쓰기 (Jewel_test 귀금속 스와치)
-    preset: {
-      value: metalPreset,
-      options: presetOptions(METAL_PRESETS),
-      onChange: (key: string, _path: string, { initial }: { initial: boolean }) => {
-        if (initial || key === CUSTOM_PRESET) return
-        const { color, roughness, metalness, clearcoat } = METAL_PRESETS[key as MetalPresetKey]
-        setMetalControls({ color, roughness, metalness, clearcoat, brightness: 1 })
+  const [metalControls, setMetalControls] = useControls(
+    'Metal',
+    () => ({
+      // 프리셋 선택 = 아래 슬라이더 값 덮어쓰기 (Jewel_test 귀금속 스와치)
+      preset: {
+        value: metalPreset,
+        options: presetOptions(METAL_PRESETS),
+        onChange: (key: string, _path: string, { initial }: { initial: boolean }) => {
+          if (initial || key === CUSTOM_PRESET) return
+          const { color, roughness, metalness, clearcoat } = METAL_PRESETS[key as MetalPresetKey]
+          setMetalControls({ color, roughness, metalness, clearcoat, brightness: 1 })
+        },
       },
-    },
-    color: { value: metalColor },
-    brightness: { value: metalBrightness, min: 0.5, max: 2.0, step: 0.01 },
-    metalness: { value: metalMetalness, min: 0, max: 1, step: 0.01 },
-    roughness: { value: metalRoughness, min: 0, max: 1, step: 0.01 },
-    clearcoat: { value: metalClearcoat, min: 0, max: 1, step: 0.01 },
-    clearcoatRoughness: { value: metalClearcoatRoughness, min: 0, max: 1, step: 0.01 },
-    envMapIntensity: { value: metalEnvMapIntensity, min: 0, max: 2, step: 0.01 },
-    flatShading: { value: metalFlatShading },
-  }), levaSettings)
+      color: { value: metalColor },
+      brightness: { value: metalBrightness, min: 0.5, max: 2.0, step: 0.01 },
+      metalness: { value: metalMetalness, min: 0, max: 1, step: 0.01 },
+      roughness: { value: metalRoughness, min: 0, max: 1, step: 0.01 },
+      clearcoat: { value: metalClearcoat, min: 0, max: 1, step: 0.01 },
+      clearcoatRoughness: { value: metalClearcoatRoughness, min: 0, max: 1, step: 0.01 },
+      envMapIntensity: { value: metalEnvMapIntensity, min: 0, max: 2, step: 0.01 },
+      flatShading: { value: metalFlatShading },
+    }),
+    levaSettings,
+  )
 
   // Prong 컨트롤 (별도 재질)
-  const prongControls = useControls('Prong', {
-    enabled: { value: prongEnabled },
-    color: { value: prongColor },
-    brightness: { value: prongBrightness, min: 0.5, max: 2.0, step: 0.01 },
-    metalness: { value: prongMetalness, min: 0, max: 1, step: 0.01 },
-    roughness: { value: prongRoughness, min: 0, max: 1, step: 0.01 },
-    envMapIntensity: { value: prongEnvMapIntensity, min: 0, max: 2, step: 0.01 },
-  }, levaSettings)
+  const prongControls = useControls(
+    'Prong',
+    {
+      enabled: { value: prongEnabled },
+      color: { value: prongColor },
+      brightness: { value: prongBrightness, min: 0.5, max: 2.0, step: 0.01 },
+      metalness: { value: prongMetalness, min: 0, max: 1, step: 0.01 },
+      roughness: { value: prongRoughness, min: 0, max: 1, step: 0.01 },
+      envMapIntensity: { value: prongEnvMapIntensity, min: 0, max: 2, step: 0.01 },
+    },
+    levaSettings,
+  )
 
   // Diamond 컨트롤 — 센터석 기준 (pavé는 PAVE_STONE 고정 + 반사/품질만). refraction / physical 양쪽 필드 동시 노출
-  const [gemControls, setGemControls] = useControls('Diamond', () => ({
-    // 프리셋 선택 = 색·굴절률·분산·흡수 덮어쓰기 (Jewel_test 보석 스와치)
-    preset: {
-      value: diamondPreset,
-      options: presetOptions(GEM_PRESETS),
-      onChange: (key: string, _path: string, { initial }: { initial: boolean }) => {
-        if (initial || key === CUSTOM_PRESET) return
-        const { color, ior, dispersion, absorption } = GEM_PRESETS[key as GemPresetKey]
-        setGemControls({ color, ior, aberration: dispersion, absorption })
+  const [gemControls, setGemControls] = useControls(
+    'Diamond',
+    () => ({
+      // 프리셋 선택 = 색·굴절률·분산·흡수 덮어쓰기 (Jewel_test 보석 스와치)
+      preset: {
+        value: diamondPreset,
+        options: presetOptions(GEM_PRESETS),
+        onChange: (key: string, _path: string, { initial }: { initial: boolean }) => {
+          if (initial || key === CUSTOM_PRESET) return
+          const { color, ior, dispersion, absorption } = GEM_PRESETS[key as GemPresetKey]
+          setGemControls({ color, ior, aberration: dispersion, absorption })
+        },
       },
-    },
-    color: { value: diamondColor },
-    ior: { value: diamondIor, min: 1.0, max: 3, step: 0.005 },
-    // 분산 — refraction은 굴절률 폭, physical은 MeshPhysicalMaterial.dispersion (Jewel_test 슬라이더와 동일하게 공유)
-    aberration: { value: diamondAberration, min: 0, max: 0.06, step: 0.001, label: 'dispersion (fire)' },
-    // --- Refraction (gemMaterial='refraction'에서만 반영) ---
-    bounces: { value: diamondBounces, min: 1, max: 7, step: 1 },
-    quality: { value: diamondDispersionMode, options: dispersionModeOptions },
-    absorption: { value: diamondAbsorption, min: 0, max: 2, step: 0.01 },
-    fresnelBias: { value: diamondFresnelBias, min: 0, max: 0.3, step: 0.005 },
-    sparkle: { value: diamondSparkle, min: 0, max: 2, step: 0.01 },
-    paveBounces: { value: diamondPaveBounces, min: 1, max: 7, step: 1 },
-    paveQuality: { value: diamondPaveDispersionMode, options: dispersionModeOptions },
-    paveSamples: { value: diamondPaveSamples, min: 1, max: 4, step: 1 },
-    paveEnvBlur: { value: diamondPaveEnvBlur, min: 0, max: 6, step: 0.1 },
-    paveEnvMapIntensity: { value: diamondPaveEnvMapIntensity, min: 0, max: 5, step: 0.01, label: 'pave envMapIntensity' },
-    settingOcclusion: { value: diamondSettingOcclusion, min: 0, max: 1, step: 0.01, label: 'setting occlusion' },
-    settingColor: { value: diamondSettingColor, label: 'setting color' },
-    // --- Physical (gemMaterial='physical'에서만 반영) ---
-    transmission: { value: diamondTransmission, min: 0, max: 1, step: 0.01 },
-    thickness: { value: diamondThickness, min: 0, max: 5, step: 0.01 },
-    roughness: { value: diamondRoughness, min: 0, max: 1, step: 0.01 },
-    iridescence: { value: diamondIridescence, min: 0, max: 1, step: 0.01 },
-    iridescenceIOR: { value: diamondIridescenceIOR, min: 1, max: 3, step: 0.01 },
-    attenuationColor: { value: diamondAttenuationColor },
-    attenuationDistance: { value: diamondAttenuationDistance, min: 0.01, max: 10, step: 0.01 },
-    envMapIntensity: { value: diamondEnvMapIntensity, min: 0, max: 5, step: 0.01 },
-    flatShading: { value: diamondFlatShading },
-  }), levaSettings)
+      color: { value: diamondColor },
+      ior: { value: diamondIor, min: 1.0, max: 3, step: 0.005 },
+      // 분산 — refraction은 굴절률 폭, physical은 MeshPhysicalMaterial.dispersion (Jewel_test 슬라이더와 동일하게 공유)
+      aberration: { value: diamondAberration, min: 0, max: 0.06, step: 0.001, label: 'dispersion (fire)' },
+      // --- Refraction (gemMaterial='refraction'에서만 반영) ---
+      bounces: { value: diamondBounces, min: 1, max: 7, step: 1 },
+      quality: { value: diamondDispersionMode, options: dispersionModeOptions },
+      absorption: { value: diamondAbsorption, min: 0, max: 2, step: 0.01 },
+      fresnelBias: { value: diamondFresnelBias, min: 0, max: 0.3, step: 0.005 },
+      sparkle: { value: diamondSparkle, min: 0, max: 2, step: 0.01 },
+      paveBounces: { value: diamondPaveBounces, min: 1, max: 7, step: 1 },
+      paveQuality: { value: diamondPaveDispersionMode, options: dispersionModeOptions },
+      paveSamples: { value: diamondPaveSamples, min: 1, max: 4, step: 1 },
+      paveEnvBlur: { value: diamondPaveEnvBlur, min: 0, max: 6, step: 0.1 },
+      paveEnvMapIntensity: {
+        value: diamondPaveEnvMapIntensity,
+        min: 0,
+        max: 5,
+        step: 0.01,
+        label: 'pave envMapIntensity',
+      },
+      settingOcclusion: { value: diamondSettingOcclusion, min: 0, max: 1, step: 0.01, label: 'setting occlusion' },
+      settingColor: { value: diamondSettingColor, label: 'setting color' },
+      // --- Physical (gemMaterial='physical'에서만 반영) ---
+      transmission: { value: diamondTransmission, min: 0, max: 1, step: 0.01 },
+      thickness: { value: diamondThickness, min: 0, max: 5, step: 0.01 },
+      roughness: { value: diamondRoughness, min: 0, max: 1, step: 0.01 },
+      iridescence: { value: diamondIridescence, min: 0, max: 1, step: 0.01 },
+      iridescenceIOR: { value: diamondIridescenceIOR, min: 1, max: 3, step: 0.01 },
+      attenuationColor: { value: diamondAttenuationColor },
+      attenuationDistance: { value: diamondAttenuationDistance, min: 0.01, max: 10, step: 0.01 },
+      envMapIntensity: { value: diamondEnvMapIntensity, min: 0, max: 5, step: 0.01 },
+      flatShading: { value: diamondFlatShading },
+    }),
+    levaSettings,
+  )
 
   // 품질 프로필이 바뀔 때만 센터석 값을 덮어씀 — 그 뒤 사용자가 슬라이더를 만지면 그대로 둔다
   const appliedQualityTier = useRef<string>()
@@ -611,37 +633,8 @@ export function Ring({
   }, [qualityTier, setGemControls])
 
   // 센터석 — 모델의 센터석과 컷 미리보기가 공유
-  const centerGemOptions = useMemo<DiamondMaterialOptions>(
-    () => ({
-      color: gemControls.color,
-      ior: gemControls.ior,
-      aberrationStrength: gemControls.aberration,
-      absorptionFactor: gemControls.absorption,
-      envMapIntensity: gemControls.envMapIntensity,
-      fresnelBias: gemControls.fresnelBias,
-      sparkleIntensity: gemControls.sparkle,
-      bounces: gemControls.bounces,
-      dispersionMode: gemControls.quality as DispersionMode,
-      settingStrength: gemControls.settingOcclusion,
-      settingColor: gemControls.settingColor,
-      neutralSpectrum: diamondNeutralSpectrum,
-    }),
-    [gemControls, diamondNeutralSpectrum],
-  )
-  const paveGemOptions = useMemo<DiamondMaterialOptions>(
-    () => ({
-      ...PAVE_STONE,
-      fresnelBias: gemControls.fresnelBias,
-      sparkleIntensity: gemControls.sparkle,
-      bounces: gemControls.paveBounces,
-      dispersionMode: gemControls.paveQuality as DispersionMode,
-      pixelSamples: gemControls.paveSamples,
-      envBlur: gemControls.paveEnvBlur,
-      envMapIntensity: gemControls.paveEnvMapIntensity,
-      settingStrength: gemControls.settingOcclusion,
-      settingColor: gemControls.settingColor,
-      neutralSpectrum: diamondNeutralSpectrum,
-    }),
+  const { center: centerGemOptions, pave: paveGemOptions } = useMemo(
+    () => gemMaterialOptions(gemControls, diamondNeutralSpectrum),
     [gemControls, diamondNeutralSpectrum],
   )
   const physicalGemProps = useMemo<THREE.MeshPhysicalMaterialParameters>(
@@ -664,16 +657,24 @@ export function Ring({
   )
 
   // Shadow 컨트롤
-  const shadowControls = useControls('Shadow', {
-    opacity: { value: shadowOpacity, min: 0, max: 1, step: 0.01 },
-  }, levaSettings)
+  const shadowControls = useControls(
+    'Shadow',
+    {
+      opacity: { value: shadowOpacity, min: 0, max: 1, step: 0.01 },
+    },
+    levaSettings,
+  )
 
   // Transform 컨트롤
-  const transformControls = useControls('Transform', {
-    scale: { value: defaultScale, min: 0.001, max: 100, step: 0.001 },
-    positionY: { value: defaultPositionY, min: -10, max: 10, step: 0.1 },
-    rotationX: { value: defaultRotationX, min: -180, max: 180, step: 1 },
-  }, levaSettings)
+  const transformControls = useControls(
+    'Transform',
+    {
+      scale: { value: defaultScale, min: 0.001, max: 100, step: 0.001 },
+      positionY: { value: defaultPositionY, min: -10, max: 10, step: 0.1 },
+      rotationX: { value: defaultRotationX, min: -180, max: 180, step: 1 },
+    },
+    levaSettings,
+  )
 
   // shadowOpacity Leva 값 동기화
   useEffect(() => {
@@ -682,35 +683,10 @@ export function Ring({
 
   // Metal 재질 생성 (PBR - 씬 환경맵 자동 사용)
   // toneMapped: true로 bloom에서 제외 (1.0 이하로 클램프)
-  const metalMaterial = useMemo(() => {
-    const color = new THREE.Color(metalControls.color)
-    color.multiplyScalar(metalControls.brightness)
-
-    return new THREE.MeshPhysicalMaterial({
-      color: color,
-      metalness: metalControls.metalness,
-      roughness: metalControls.roughness,
-      clearcoat: metalControls.clearcoat,
-      clearcoatRoughness: metalControls.clearcoatRoughness,
-      envMapIntensity: metalControls.envMapIntensity,
-      flatShading: metalControls.flatShading,
-      toneMapped: true, // bloom 제외 - HDR 값을 1.0 이하로 클램프
-    })
-  }, [metalControls])
+  const metalMaterial = useMemo(() => createMetalMaterial(metalControls), [metalControls])
 
   // Prong 재질 생성 (로즈골드)
-  const prongMaterial = useMemo(() => {
-    const color = new THREE.Color(prongControls.color)
-    color.multiplyScalar(prongControls.brightness)
-
-    return new THREE.MeshStandardMaterial({
-      color: color,
-      metalness: prongControls.metalness,
-      roughness: prongControls.roughness,
-      envMapIntensity: prongControls.envMapIntensity,
-      toneMapped: true,
-    })
-  }, [prongControls])
+  const prongMaterial = useMemo(() => createProngMaterial(prongControls), [prongControls])
 
   // 모델에서 geometry 추출 (useMemo로 동기 처리 - 깜빡임 방지)
   const processedModel = useMemo(() => {
@@ -720,6 +696,7 @@ export function Ring({
     const prongs: MeshInfo[] = []
     const gems: GemMeshInfo[] = []
     const boundingBox = new THREE.Box3()
+    modelObj.updateMatrixWorld(true)
 
     modelObj.traverse((child) => {
       if (child instanceof THREE.Mesh) {
@@ -755,6 +732,7 @@ export function Ring({
           name.includes('stone') ||
           name.includes('사용자 지정')
         ) {
+          meshInfo.geometry.dispose() // This branch uses split stones, not the generic clone.
           for (const stone of splitFacetedStones(geometry)) {
             gems.push({ ...meshInfo, geometry: stone, pave: false })
           }
@@ -762,6 +740,8 @@ export function Ring({
           prongs.push(meshInfo)
         } else if (!name.includes('shadow')) {
           metals.push(meshInfo)
+        } else {
+          meshInfo.geometry.dispose()
         }
 
         // 원본 메시 숨기기
@@ -787,6 +767,19 @@ export function Ring({
       modelBounds: { min: boundingBox.min.clone(), max: boundingBox.max.clone() },
     }
   }, [modelObj])
+
+  // Bounds include every stone, even before the asynchronous gem environment is ready.
+  useLayoutEffect(() => {
+    if (!processedModel || !onBounds) return
+    const transform = new THREE.Matrix4().compose(
+      new THREE.Vector3(0, transformControls.positionY, 0),
+      new THREE.Quaternion().setFromEuler(new THREE.Euler(THREE.MathUtils.degToRad(transformControls.rotationX), 0, 0)),
+      new THREE.Vector3().setScalar(transformControls.scale),
+    )
+    const box = new THREE.Box3(processedModel.modelBounds.min.clone(), processedModel.modelBounds.max.clone())
+    box.translate(processedModel.modelCenter.clone().negate()).applyMatrix4(transform)
+    onBounds(box)
+  }, [processedModel, onBounds, transformControls])
 
   // 로딩 완료 콜백
   useEffect(() => {
@@ -816,12 +809,9 @@ export function Ring({
   useLayoutEffect(() => {
     if (!processedModel || !gemEnv) return
     processedModel.gemMeshes.forEach((gem, index) => {
-      diamondMaterials[index]?.update({
-        envMap: gemEnv.envMap,
-        envRotation: gemEnv.rotation,
-        settingOcclusion: settingMaps[index] ?? null,
-        ...(gem.pave ? paveGemOptions : centerGemOptions),
-      })
+      diamondMaterials[index]?.update(
+        connectedGemOptions(gem.pave ? paveGemOptions : centerGemOptions, gemEnv, settingMaps[index] ?? null),
+      )
     })
   }, [processedModel, diamondMaterials, gemEnv, centerGemOptions, paveGemOptions, settingMaps])
 

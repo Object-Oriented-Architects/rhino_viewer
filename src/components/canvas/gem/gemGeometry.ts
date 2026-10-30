@@ -55,7 +55,7 @@ export function splitFacetedStones(geometry: THREE.BufferGeometry): THREE.Buffer
     else stones.set(root, [tri])
   }
 
-  return [...stones.values()].map((tris) => {
+  const result = [...stones.values()].map((tris) => {
     const array = new Float32Array(tris.length * 9)
     tris.forEach((tri, j) => {
       for (let corner = 0; corner < 3; corner++) {
@@ -68,4 +68,6 @@ export function splitFacetedStones(geometry: THREE.BufferGeometry): THREE.Buffer
     stone.computeVertexNormals()
     return stone
   })
+  if (source !== geometry) source.dispose()
+  return result
 }

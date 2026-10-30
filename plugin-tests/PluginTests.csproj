@@ -1,0 +1,22 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net7.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <CheckEolTargetFramework>false</CheckEolTargetFramework>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="../plugin/StaticFileServer.cs" Link="StaticFileServer.cs" />
+    <Compile Include="../plugin/CameraPayload.cs" Link="CameraPayload.cs" />
+    <Compile Include="../plugin/ExecutablePayload.cs" Link="ExecutablePayload.cs" />
+    <Compile Include="../plugin/MemoryLiveStore.cs" Link="MemoryLiveStore.cs" />
+    <Compile Include="../plugin/SceneData.cs" Link="SceneData.cs" />
+    <Compile Include="../plugin/MeshPayload.cs" Link="MeshPayload.cs" />
+    <Compile Include="../plugin/SceneExport.cs" Link="SceneExport.cs" />
+    <Compile Include="../plugin/DependencyRules.cs" Link="DependencyRules.cs" />
+    <Compile Include="../plugin/MaterialRules.cs" Link="MaterialRules.cs" />
+    <Compile Include="../plugin/IncrementalScene.cs" Link="IncrementalScene.cs" />
+    <Compile Include="../plugin/PullSignal.cs" Link="PullSignal.cs" />
+  </ItemGroup>
+</Project>

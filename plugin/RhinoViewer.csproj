@@ -1,0 +1,38 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net7.0</TargetFramework>
+    <LangVersion>latest</LangVersion>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <EnableDynamicLoading>true</EnableDynamicLoading>
+    <TargetExt>.rhp</TargetExt>
+    <NoWarn>NU1701</NoWarn>
+    <RootNamespace>RhinoViewer</RootNamespace>
+    <AssemblyName>RhinoViewer</AssemblyName>
+    <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <AssemblyAttribute Include="System.Runtime.InteropServices.GuidAttribute">
+      <_Parameter1>BCBAB3D3-CB00-43B3-AD3E-9D91AA5ABE19</_Parameter1>
+    </AssemblyAttribute>
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="RhinoCommon" Version="8.*" ExcludeAssets="runtime" />
+    <!-- Rhino 8.36 은 Eto 2.11 을 쓴다. 2.13 을 복사하면 어셈블리가 갈라져 패널이 빈 화면이 된다.
+         런타임 자산을 제외해 Rhino 가 들고 있는 Eto.dll 을 그대로 쓰게 한다. -->
+    <PackageReference Include="Eto.Forms" Version="2.11.0" ExcludeAssets="runtime" />
+  </ItemGroup>
+
+  <!-- export shell: JS/CSS/environment assets inline; RVS1 is streamed at export time -->
+  <ItemGroup Condition="Exists('../dist/rhinoviewer-shell.html')">
+    <None Include="../dist/rhinoviewer-shell.html" Link="rhinoviewer-shell.html" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+  <ItemGroup Condition="Exists('../viewerhost/bin/Release/net48/RhinoViewerHost.exe')">
+    <None Include="../viewerhost/bin/Release/net48/RhinoViewerHost.exe" Link="RhinoViewerHost.exe" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+</Project>

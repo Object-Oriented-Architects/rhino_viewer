@@ -44,3 +44,24 @@ report.*.json
 
 # typescript incremental build info
 *.tsbuildinfo
+
+# Rhino 플러그인 빌드 산출물
+/plugin/bin/
+/plugin/obj/
+
+# 단일 HTML export 산출물
+/dist/
+
+# rhino3dm 로컬 복사본 (tools/copy-rhino3dm.mjs 가 빌드 때 만든다)
+/public/rhino3dm/
+
+# exe 뷰어 호스트 빌드 산출물
+/viewerhost/bin/
+/viewerhost/obj/
+
+# 세션 간 임시 산출물
+/temp/
+
+# 플러그인 테스트 빌드 산출물
+/plugin-tests/bin/
+/plugin-tests/obj/

@@ -22,6 +22,7 @@
     "postprocessing": "6.38.2",
     "react": "^19.2.4",
     "react-dom": "^19.2.4",
+    "rhino3dm": "8.17.0",
     "three": "^0.179.1",
     "three-mesh-bvh": "0.8.3",
     "three-stdlib": "^2.28.9",
@@ -49,8 +50,9 @@
   },
   "scripts": {
     "lint": "next lint --fix --dir app",
-    "dev": "next dev",
-    "build": "next build",
+    "dev": "node tools/copy-rhino3dm.mjs && next dev",
+    "build": "node tools/copy-rhino3dm.mjs && next build",
+    "build:shell": "node tools/build-shell.mjs",
     "analyze": "ANALYZE=true next build",
     "start": "next start",
     "prettier": "npx prettier --list-different \"./src/**/*.{ts,tsx,md}\" \"./app/**/*.{ts,tsx,md}\"\""
