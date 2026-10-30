@@ -93,17 +93,6 @@ public sealed class ExportCommand : RhinoCommand
 
     protected override Result RunCommand(RhinoDoc doc, RunMode mode)
     {
-        // 내보내기는 셸만 필요하다. 라이브 패널·HTTP 서버·out/ 디렉터리와 독립이다.
-        var shell = Path.Combine(WebRootLocator.PluginDirectory, "rhinoviewer-shell.html");
-        if (!File.Exists(shell))
-        {
-            RhinoApp.WriteLine($"RhinoViewerExport: 내보내기 셸이 없습니다 — {shell}");
-            RhinoApp.WriteLine(
-                "RhinoViewerExport: node tools/pack-single-html.mjs --page viewer-live --no-scene " +
-                "--out dist/rhinoviewer-shell.html 로 만들고 rhp 폴더에 복사하세요.");
-            return Result.Failure;
-        }
-
         var dialog = new Rhino.UI.SaveFileDialog
         {
             Title = "RhinoViewer HTML / 실행 파일 내보내기",
@@ -122,17 +111,9 @@ public sealed class ExportCommand : RhinoCommand
             RhinoApp.WriteLine("RhinoViewerExport: .html 또는 .exe 확장자를 고르세요.");
             return Result.Failure;
         }
-        var template = Path.Combine(WebRootLocator.PluginDirectory, "RhinoViewerHost.exe");
-        if (executable && !File.Exists(template))
-        {
-            RhinoApp.WriteLine($"RhinoViewerExport: 실행 파일 템플릿이 없습니다 — {template}");
-            RhinoApp.WriteLine("RhinoViewerExport: RhinoViewerHost.exe 를 빌드하여 플러그인(.rhp) 옆에 복사하세요.");
-            return Result.Failure;
-        }
-
         try
         {
-            ExportJob.Start(doc, shell, template, target, executable);
+            ExportJob.Start(doc, target, executable);
             RhinoApp.WriteLine("RhinoViewerExport: 내보내기를 시작했습니다. 완료 결과는 명령줄에 표시됩니다.");
             return Result.Success;
         }

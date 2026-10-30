@@ -120,18 +120,22 @@ public sealed class ViewerPanel : Panel, IPanel
             return;
         StopWaiting();
         _started = true;
-        _root = WebRootLocator.Find();
-        if (_root == null)
-        {
-            ShowError("웹 빌드를 찾을 수 없습니다.\n\n" +
-                "NEXT_STATIC_EXPORT=1 pnpm build 로 out/ 을 만들거나,\n" +
-                "환경변수 RHINOVIEWER_WEBROOT 로 빌드 폴더를 지정하세요.");
-            return;
-        }
-
         try
         {
-            _server = new StaticFileServer(_root, _store);
+            var environment = Environment.GetEnvironmentVariable("RHINOVIEWER_WEBROOT");
+            IStaticFileSource source;
+            if (!string.IsNullOrWhiteSpace(environment) && Directory.Exists(environment) &&
+                File.Exists(Path.Combine(environment, "viewer-live", "index.html")))
+            {
+                _root = Path.GetFullPath(environment);
+                source = new DiskFileSource(_root);
+            }
+            else
+            {
+                _root = "임베드 웹 자산";
+                source = EmbeddedAssets.ReadWeb();
+            }
+            _server = new StaticFileServer(source, _store);
         }
         catch (Exception ex)
         {
@@ -646,32 +650,4 @@ internal static class RhinoWindow
     [System.Runtime.InteropServices.DllImport("user32.dll")]
     [return: System.Runtime.InteropServices.MarshalAs(System.Runtime.InteropServices.UnmanagedType.Bool)]
     private static extern bool IsWindowVisible(IntPtr window);
-}
-
-/// <summary>웹 빌드 루트 탐색 — (1) 환경변수 (2) .rhp 옆 wwwroot (3) 리포의 out/ (개발 편의)</summary>
-internal static class WebRootLocator
-{
-    public static string? Find()
-    {
-        var environment = Environment.GetEnvironmentVariable("RHINOVIEWER_WEBROOT");
-        if (!string.IsNullOrWhiteSpace(environment) && IsWebRoot(environment))
-            return environment;
-
-        // Rhino 플러그인에서 AppContext.BaseDirectory 는 Rhino.exe 의 System 폴더다.
-        // 반드시 플러그인 어셈블리(.rhp)가 놓인 폴더를 기준으로 찾아야 한다.
-        var baseDirectory = PluginDirectory;
-        var beside = Path.Combine(baseDirectory, "wwwroot");
-        if (IsWebRoot(beside))
-            return beside;
-
-        // plugin/bin/Debug/net7.0 → 리포 루트의 out/
-        var repository = Path.GetFullPath(Path.Combine(baseDirectory, "..", "..", "..", "..", "out"));
-        return IsWebRoot(repository) ? repository : null;
-    }
-
-    internal static string PluginDirectory =>
-        Path.GetDirectoryName(typeof(WebRootLocator).Assembly.Location) ?? AppContext.BaseDirectory;
-
-    private static bool IsWebRoot(string directory) =>
-        Directory.Exists(directory) && File.Exists(Path.Combine(directory, "viewer-live", "index.html"));
 }

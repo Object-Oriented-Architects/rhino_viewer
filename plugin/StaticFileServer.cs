@@ -18,17 +18,17 @@ namespace RhinoViewer;
 public sealed class StaticFileServer : IDisposable
 {
     private readonly TcpListener _listener;
-    private readonly string _root;
+    private readonly IStaticFileSource _source;
     private readonly MemoryLiveStore _store;
     private readonly CancellationTokenSource _cts = new();
 
     public int Port { get; }
 
-    /// <param name="root">정적 빌드 폴더 (읽기 전용)</param>
+    /// <param name="source">정적 빌드의 디스크 또는 메모리 소스</param>
     /// <param name="store">불변 라이브 페이로드의 메모리 저장소</param>
-    internal StaticFileServer(string root, MemoryLiveStore store)
+    internal StaticFileServer(IStaticFileSource source, MemoryLiveStore store)
     {
-        _root = Path.GetFullPath(root).TrimEnd(Path.DirectorySeparatorChar);
+        _source = source;
         _store = store;
         _listener = new TcpListener(IPAddress.Loopback, 0);
         _listener.Start();
@@ -107,8 +107,12 @@ public sealed class StaticFileServer : IDisposable
                     urlPath = urlPath[..queryIndex];
 
                 urlPath = Uri.UnescapeDataString(urlPath).Replace('\\', '/');
-                if (urlPath.EndsWith('/'))
-                    urlPath += "index.html";
+                if (!StaticPath.TryNormalize(urlPath, out var path))
+                {
+                    await WriteStatusAsync(stream, 403, "Forbidden").ConfigureAwait(false);
+                    return;
+                }
+                urlPath = "/" + path;
 
                 if (urlPath.StartsWith("/live/", StringComparison.OrdinalIgnoreCase))
                 {
@@ -128,35 +132,28 @@ public sealed class StaticFileServer : IDisposable
                     await stream.FlushAsync().ConfigureAwait(false);
                     return;
                 }
-                var full = Path.GetFullPath(Path.Combine(_root, urlPath.TrimStart('/')));
-
-                // 디렉터리 탈출 방지
-                if (!full.StartsWith(_root + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase)
-                    && !string.Equals(full, _root, StringComparison.OrdinalIgnoreCase))
+                // 정적 자산은 소스에서 읽고, 라이브 페이로드는 언제나 위 메모리 분기를 쓴다.
+                var file = _source.OpenRead(path);
+                if (file == null && !path.EndsWith("/index.html", StringComparison.OrdinalIgnoreCase))
                 {
-                    await WriteStatusAsync(stream, 403, "Forbidden").ConfigureAwait(false);
-                    return;
+                    path += "/index.html";
+                    file = _source.OpenRead(path);
                 }
-
-                if (!File.Exists(full))
+                using var content = file;
+                if (content == null)
                 {
                     await WriteStatusAsync(stream, 404, "Not Found").ConfigureAwait(false);
                     return;
                 }
-
-                // 정적 빌드 파일만 디스크에서 읽는다. 라이브 페이로드는 파일로 쓰지 않는다.
-                using var file = new FileStream(full, FileMode.Open, FileAccess.Read,
-                    FileShare.ReadWrite | FileShare.Delete, 65536,
-                    FileOptions.Asynchronous | FileOptions.SequentialScan);
                 var header =
                     "HTTP/1.1 200 OK\r\n" +
-                    $"Content-Type: {ContentType(full)}\r\n" +
-                    $"Content-Length: {file.Length}\r\n" +
+                    $"Content-Type: {ContentType(path)}\r\n" +
+                    $"Content-Length: {content.Length}\r\n" +
                     "Cache-Control: no-store\r\n" +
                     "Connection: close\r\n\r\n";
 
                 await stream.WriteAsync(Encoding.ASCII.GetBytes(header)).ConfigureAwait(false);
-                await file.CopyToAsync(stream).ConfigureAwait(false);
+                await content.CopyToAsync(stream).ConfigureAwait(false);
                 await stream.FlushAsync().ConfigureAwait(false);
             }
             catch
@@ -186,6 +183,7 @@ public sealed class StaticFileServer : IDisposable
             ".webp" => "image/webp",
             ".ico" => "image/x-icon",
             ".woff2" => "font/woff2",
+            ".wasm" => "application/wasm",
             ".hdr" => "image/vnd.radiance",
             ".exr" => "image/x-exr",
             ".3dm" => "application/octet-stream",

@@ -24,3 +24,4 @@ run(path.join(root, 'tools/pack-single-html.mjs'), [
   '--out',
   'dist/rhinoviewer-shell.html',
 ])
+run(path.join(root, 'tools/pack-plugin-web.mjs'))

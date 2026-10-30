@@ -8,6 +8,8 @@
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="../plugin/StaticFileServer.cs" Link="StaticFileServer.cs" />
+    <Compile Include="../plugin/StaticFileSource.cs" Link="StaticFileSource.cs" />
+    <Compile Include="../plugin/EmbeddedAssets.cs" Link="EmbeddedAssets.cs" />
     <Compile Include="../plugin/CameraPayload.cs" Link="CameraPayload.cs" />
     <Compile Include="../plugin/ExecutablePayload.cs" Link="ExecutablePayload.cs" />
     <Compile Include="../plugin/MemoryLiveStore.cs" Link="MemoryLiveStore.cs" />

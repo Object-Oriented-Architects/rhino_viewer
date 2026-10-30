@@ -28,6 +28,7 @@
 import fs from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { viewerAssets } from './viewer-assets.mjs'
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 
@@ -86,13 +87,9 @@ const inlineSrcShim = (url) =>
 
 // ---------------------------------------------------------------- 에셋
 // 뷰어 config 가 참조하는 파일만 넣는다 (다른 페이지 모델까지 끌어오면 수십 MB가 된다)
-const configSrc = fs.readFileSync(path.join(repoRoot, 'src', 'config', 'ring-plusplastic.ts'), 'utf8')
 const assetPaths = new Set(includeRhino3dm ? ['/rhino3dm/rhino3dm.js', '/rhino3dm/rhino3dm.wasm'] : [])
 if (!noScene) assetPaths.add('/model/glasses/Breezm_Pbr_shadow_embedded_files/gradient_02.jpg')
-for (const m of configSrc.matchAll(/(modelPath|hdrPath|shadowTexturePath):\s*'([^']+)'/g)) {
-  if (noScene && (m[1] === 'modelPath' || m[1] === 'shadowTexturePath')) continue
-  assetPaths.add(m[2])
-}
+for (const asset of viewerAssets(repoRoot, { noScene })) assetPaths.add(asset)
 
 // Turbopack may request CSS again during hydration, even though the initial link is inlined.
 const attr = (tag, name) => tag.match(new RegExp(`(?:^|\\s)${name}\\s*=\\s*["']([^"']*)["']`, 'i'))?.[1]

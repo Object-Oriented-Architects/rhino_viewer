@@ -10,6 +10,7 @@
     <NoWarn>NU1701</NoWarn>
     <RootNamespace>RhinoViewer</RootNamespace>
     <AssemblyName>RhinoViewer</AssemblyName>
+    <ViewerAssetsDirectory>$(MSBuildProjectDirectory)/obj/$(Configuration)/$(TargetFramework)/viewer-assets</ViewerAssetsDirectory>
     <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
   </PropertyGroup>
 
@@ -26,13 +27,36 @@
     <PackageReference Include="Eto.Forms" Version="2.11.0" ExcludeAssets="runtime" />
   </ItemGroup>
 
-  <!-- export shell: JS/CSS/environment assets inline; RVS1 is streamed at export time -->
-  <ItemGroup Condition="Exists('../dist/rhinoviewer-shell.html')">
-    <None Include="../dist/rhinoviewer-shell.html" Link="rhinoviewer-shell.html" CopyToOutputDirectory="PreserveNewest" />
+  <!-- 웹·셸·호스트를 ZIP으로 묶어 rhp 안에만 넣는다. -->
+  <ItemGroup>
+    <EmbeddedResource Include="$(ViewerAssetsDirectory).zip" LogicalName="RhinoViewer.Assets.zip" />
+    <ViewerWebAsset Include="../dist/plugin-web/**/*" />
+    <ViewerAssetInput Include="@(ViewerWebAsset);../dist/rhinoviewer-shell.html;../viewerhost/bin/Release/net48/RhinoViewerHost.exe;$(MSBuildProjectFullPath);../tools/build-shell.mjs;../tools/pack-plugin-web.mjs;../tools/pack-single-html.mjs;../tools/viewer-assets.mjs" />
   </ItemGroup>
 
-  <ItemGroup Condition="Exists('../viewerhost/bin/Release/net48/RhinoViewerHost.exe')">
-    <None Include="../viewerhost/bin/Release/net48/RhinoViewerHost.exe" Link="RhinoViewerHost.exe" CopyToOutputDirectory="PreserveNewest" />
-  </ItemGroup>
+  <Target Name="PrepareViewerAssets" Condition="'$(DesignTimeBuild)' != 'true'">
+    <Error Condition="!Exists('../dist/plugin-web/viewer-live/index.html')"
+           Text="플러그인 웹 자산이 없습니다. repo 루트에서 pnpm build:shell 을 먼저 실행하세요." />
+    <Error Condition="!Exists('../dist/rhinoviewer-shell.html')"
+           Text="내보내기 셸이 없습니다. repo 루트에서 pnpm build:shell 을 먼저 실행하세요." />
+    <Error Condition="!Exists('../viewerhost/bin/Release/net48/RhinoViewerHost.exe')"
+           Text="EXE 템플릿이 없습니다. dotnet build viewerhost\RhinoViewerHost.csproj -c Release 를 먼저 실행하세요." />
+    <MakeDir Directories="$(ViewerAssetsDirectory)" />
+    <!-- 파일 삭제도 감지하되, 같은 입력 목록은 mtime을 바꾸지 않는다. -->
+    <WriteLinesToFile File="$(ViewerAssetsDirectory).inputs" Lines="@(ViewerAssetInput->'%(FullPath)')"
+                      Overwrite="true" WriteOnlyWhenDifferent="true" />
+  </Target>
+
+  <Target Name="PackViewerAssets" BeforeTargets="PrepareForBuild" DependsOnTargets="PrepareViewerAssets"
+          Condition="'$(DesignTimeBuild)' != 'true'"
+          Inputs="@(ViewerAssetInput);$(ViewerAssetsDirectory).inputs" Outputs="$(ViewerAssetsDirectory).zip">
+    <RemoveDir Directories="$(ViewerAssetsDirectory)" />
+    <Copy SourceFiles="@(ViewerWebAsset)"
+          DestinationFiles="@(ViewerWebAsset->'$(ViewerAssetsDirectory)/web/%(RecursiveDir)%(Filename)%(Extension)')" />
+    <Copy SourceFiles="../dist/rhinoviewer-shell.html;../viewerhost/bin/Release/net48/RhinoViewerHost.exe"
+          DestinationFolder="$(ViewerAssetsDirectory)" />
+    <ZipDirectory SourceDirectory="$(ViewerAssetsDirectory)"
+                  DestinationFile="$(ViewerAssetsDirectory).zip" Overwrite="true" />
+  </Target>
 
 </Project>

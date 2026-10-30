@@ -11,6 +11,10 @@ pwsh -File viewerhost\tools\make-exe.ps1 `
 
 Distribute only the resulting EXE. `Microsoft.Web.WebView2` 1.0.4258.31 Core/WinForms assemblies and the x64 loader are embedded. The PDB and EXE.config generated alongside the template are not needed for execution (tested from an otherwise empty folder). Do not rename a DLL to EXE or use a previously packed EXE as the template. The packing tool validates UTF-8 incrementally, refuses in-place output/already-packed templates, and publishes a same-directory temporary file only after completing the footer.
 
+For Rhino plugin distribution, this Release template is ZIP-compressed with the web assets and HTML shell inside `RhinoViewer.rhp`.
+The plugin exports EXEs from the embedded template stream; no `RhinoViewerHost.exe` is needed beside the rhp.
+The `make-exe.ps1` tool above independently packs an existing HTML file. See `plugin/README.md` for the plugin build order.
+
 ## C4 payload and caches
 
 The final 16 bytes are a little-endian Int64 HTML **byte** length followed by ASCII `RVHTML01`. The payload is read from `Assembly.GetEntryAssembly().Location`, hashed/copied with bounded 128 KiB buffers, and published as:

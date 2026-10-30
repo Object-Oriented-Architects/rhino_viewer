@@ -51,6 +51,10 @@ internal static partial class Program
             ("C#→JS GUID·RVM2·재질 검증", () => Sync(WebProtocol)),
             ("pull 실행 중 새 신호·재시도·페이지 전환", () => Sync(PullRace)),
             ("C1 정확한 스크립트·카메라 직렬화", () => Sync(Camera)),
+            ("임베드 묶음·누락·손상·경로 검증", () => Sync(AssetBundle)),
+            ("메모리 서버 정규화·index·MIME·live 우선", MemoryServer),
+            ("디스크 소스 접두사·상대/절대 경로 이탈", () => Sync(DiskSourceBoundary)),
+            ("스트림 EXE 템플릿·소유권·비탐색 입력", () => Sync(StreamTemplate)),
             ("서버 경로·보관·보안·인코딩", Server),
             ("새 rev 발행과 1000 HTTP state+object 동시 요청", Concurrency)
         };
@@ -243,9 +247,8 @@ internal static partial class Program
             var end = text.IndexOf("\";</script>", start, StringComparison.Ordinal);
             Bytes(bytes, Convert.FromBase64String(text[start..end]));
             Check(text.IndexOf(marker, StringComparison.Ordinal) < text.IndexOf("</head>", StringComparison.Ordinal));
-            var template = Path.Combine(Temp, "template.exe");
+            using var template = new MemoryStream(new byte[] { 1, 2, 3, 4, 5 }, writable: false);
             var executable = Path.Combine(Temp, "scene.exe");
-            File.WriteAllBytes(template, new byte[] { 1, 2, 3, 4, 5 });
             ExecutablePayload.Write(template, executable,
                 output => SceneExport.WriteHtml(output, shell, objects, frame, presentation));
             var packed = File.ReadAllBytes(executable);
@@ -852,7 +855,7 @@ internal static partial class Program
         var sentinel = Path.Combine(Temp, "sentinel.txt");
         File.WriteAllText(sentinel, "PRIVATE");
         var store = new MemoryLiveStore();
-        using var server = new StaticFileServer(root, store);
+        using var server = new StaticFileServer(new DiskFileSource(root), store);
         var obj = Object();
         var frame = SceneFrame.Calculate(new[] { obj.Box });
         Equal(404, (await Request(server.Port, "/live/state.json")).Status);
@@ -894,7 +897,7 @@ internal static partial class Program
         var root = Path.Combine(Temp, "www");
         Directory.CreateDirectory(root);
         var store = new MemoryLiveStore();
-        using var server = new StaticFileServer(root, store);
+        using var server = new StaticFileServer(new DiskFileSource(root), store);
         var current = Object();
         var frame = SceneFrame.Calculate(new[] { current.Box });
         store.Publish(new[] { current }, frame, new("#fff", null, new Dictionary<Guid, MaterialDescriptor>()));

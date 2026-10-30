@@ -11,14 +11,14 @@ internal static class ExportJob
 {
     private static int _running;
 
-    public static void Start(RhinoDoc doc, string shell, string template, string target, bool executable)
+    public static void Start(RhinoDoc doc, string target, bool executable)
     {
         if (Interlocked.CompareExchange(ref _running, 1, 0) != 0)
             throw new InvalidOperationException("다른 내보내기가 진행 중입니다.");
 
         try
         {
-            var job = new Job(doc, shell, template, target, executable);
+            var job = new Job(doc, target, executable);
             RhinoDispatcher.Shared.Post(job.CaptureSlice);
         }
         catch
@@ -34,17 +34,13 @@ internal static class ExportJob
         private readonly List<(Guid Id, ISceneSnapshot Snapshot)> _snapshots = new();
         private readonly Queue<Guid> _ids;
         private readonly uint _serial;
-        private readonly string _shell;
-        private readonly string _template;
         private readonly string _target;
         private readonly bool _executable;
         private bool _finished;
 
-        public Job(RhinoDoc doc, string shell, string template, string target, bool executable)
+        public Job(RhinoDoc doc, string target, bool executable)
         {
             _serial = doc.RuntimeSerialNumber;
-            _shell = shell;
-            _template = template;
             _target = target;
             _executable = executable;
             _ids = new(RhinoSceneDocument.Objects(selectionOnly: true).Select(obj => obj.Id));
@@ -173,11 +169,12 @@ internal static class ExportJob
 
         private void Write(List<SceneObject> objects, SceneFrame frame, Presentation presentation)
         {
-            var shell = File.ReadAllText(_shell);
-            void WriteHtml(Stream output) => SceneExport.WriteHtml(output, shell, objects, frame, presentation);
-            if (_executable)
+            var assets = EmbeddedAssets.ReadExport(_executable);
+            using var template = assets.Template;
+            void WriteHtml(Stream output) => SceneExport.WriteHtml(output, assets.Shell, objects, frame, presentation);
+            if (template != null)
             {
-                ExecutablePayload.Write(_template, _target, WriteHtml);
+                ExecutablePayload.Write(template, _target, WriteHtml);
             }
             else
             {
