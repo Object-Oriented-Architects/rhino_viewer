@@ -1,0 +1,20 @@
+{
+  "ticketDataSourceId": "c8ff70ba-f6f1-4c14-812f-0c3048bab5f5",
+  "taskDataSourceId": "303f7ad7-803a-4948-ac40-71a13414d945",
+  "project": "Jewerly threejs",
+  "version": "0.1.0",
+  "validate": {
+    "all": {
+      "paths": [
+        "**"
+      ],
+      "commands": [
+        "pnpm build:shell",
+        "dotnet build viewerhost/RhinoViewerHost.csproj -c Release",
+        "dotnet run --project plugin-tests/PluginTests.csproj",
+        "node tools/test-scene-materials.mjs temp/plugin-tests/material.rvm temp/plugin-tests/material.json",
+        "dotnet build plugin/RhinoViewer.csproj -c Release"
+      ]
+    }
+  }
+}
